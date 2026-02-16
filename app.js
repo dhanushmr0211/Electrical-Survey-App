@@ -40,6 +40,9 @@ let historyStep = -1;
 // ==========================================
 // Initialize Konva Stage
 // ==========================================
+// Set drag distance to prevent accidental drags on mobile
+Konva.dragDistance = 10; // Require 10px movement before drag starts
+
 const container = document.getElementById('container');
 const toolbarHeight = 75; // Approximate height for bottom toolbar
 const stageWidth = window.innerWidth;
@@ -49,8 +52,13 @@ const stage = new Konva.Stage({
     container: 'container',
     width: stageWidth,
     height: stageHeight,
-    bgcolor: '#e8e8e8'
+    bgcolor: '#e8e8e8',
+    draggable: false, // Prevent stage from being draggable
+    listening: true // Ensure stage listens to events
 });
+
+// Enable touch scrolling prevention
+stage.container().style.touchAction = 'none';
 
 // Create a new layer
 const layer = new Konva.Layer();
@@ -97,10 +105,11 @@ addTransformerBtn.addEventListener('click', () => {
 });
 
 connectModeBtn.addEventListener('click', () => {
+    console.log('Connect button clicked, current tool:', currentTool);
     if (currentTool === 'connect') {
         currentTool = null;
         connectModeBtn.classList.remove('active');
-        clearSelection();
+        console.log('Connect mode deactivated');
     } else {
         currentTool = 'connect';
         connectModeBtn.classList.add('active');
@@ -108,13 +117,16 @@ connectModeBtn.addEventListener('click', () => {
         addTransformerBtn.classList.remove('active');
         deleteBtn.classList.remove('active');
         clearSelection();
+        console.log('Connect mode activated');
     }
 });
 
 deleteBtn.addEventListener('click', () => {
+    console.log('Delete button clicked, current tool:', currentTool);
     if (currentTool === 'delete') {
         currentTool = null;
         deleteBtn.classList.remove('active');
+        console.log('Delete mode deactivated');
     } else {
         currentTool = 'delete';
         deleteBtn.classList.add('active');
@@ -122,6 +134,7 @@ deleteBtn.addEventListener('click', () => {
         addTransformerBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
         clearSelection();
+        console.log('Delete mode activated');
     }
 });
 
@@ -402,7 +415,9 @@ function createPole(x, y) {
         radius: POLE_RADIUS,
         fill: POLE_COLOR,
         draggable: true,
-        id: `pole-${pole.id}`
+        id: `pole-${pole.id}`,
+        listening: true,
+        hitStrokeWidth: 20 // Larger touch target area
     });
 
     // Update pole coordinates on drag
@@ -434,7 +449,9 @@ function recreatePole(poleData) {
         radius: POLE_RADIUS,
         fill: POLE_COLOR,
         draggable: true,
-        id: `pole-${poleData.id}`
+        id: `pole-${poleData.id}`,
+        listening: true,
+        hitStrokeWidth: 20 // Larger touch target area
     });
 
     // Update pole coordinates on drag
@@ -473,7 +490,8 @@ function createTransformer(x, y) {
         height: TRANSFORMER_HEIGHT,
         fill: TRANSFORMER_COLOR,
         draggable: true,
-        id: `transformer-${transformer.id}`
+        id: `transformer-${transformer.id}`,
+        listening: true
     });
 
     // Update transformer coordinates on drag
@@ -506,7 +524,8 @@ function recreateTransformer(transformerData) {
         height: TRANSFORMER_HEIGHT,
         fill: TRANSFORMER_COLOR,
         draggable: true,
-        id: `transformer-${transformerData.id}`
+        id: `transformer-${transformerData.id}`,
+        listening: true
     });
 
     // Update transformer coordinates on drag
@@ -599,7 +618,9 @@ function drawConnection(fromObjId, toObjId) {
         strokeWidth: CONNECTION_LINE_WIDTH,
         lineCap: 'round',
         lineJoin: 'round',
-        id: `line-${connection.id}`
+        id: `line-${connection.id}`,
+        listening: true,
+        hitStrokeWidth: 20 // Much larger touch target for thin lines
     });
 
     connection.line = line;
@@ -638,7 +659,9 @@ function recreateConnection(connData) {
         strokeWidth: CONNECTION_LINE_WIDTH,
         lineCap: 'round',
         lineJoin: 'round',
-        id: `line-${connData.id}`
+        id: `line-${connData.id}`,
+        listening: true,
+        hitStrokeWidth: 20 // Much larger touch target for thin lines
     });
 
     // Create connection object
@@ -741,6 +764,13 @@ function deleteConnection(connectionId) {
 // Use 'tap' event instead of 'click' for better mobile support
 // 'tap' works on both mobile (touch) and desktop (click)
 stage.on('tap click', (e) => {
+    console.log('Tap/Click event triggered:', {
+        currentTool: currentTool,
+        targetType: e.target.getClassName ? e.target.getClassName() : 'unknown',
+        targetId: e.target.id ? e.target.id() : 'no-id',
+        isStage: e.target === stage
+    });
+
     // If no tool is active, do nothing
     if (!currentTool) return;
 
@@ -762,8 +792,12 @@ stage.on('tap click', (e) => {
 
     // Handle connect mode
     if (currentTool === 'connect') {
+        console.log('Connect mode active');
         // Check if clicked on a shape
-        if (e.target === stage) return;
+        if (e.target === stage) {
+            console.log('Clicked on stage, ignoring');
+            return;
+        }
 
         const clickedShape = e.target;
         let clickedObject = null;
@@ -777,17 +811,22 @@ stage.on('tap click', (e) => {
             }
         }
 
+        console.log('Clicked object:', clickedObject);
+
         if (!clickedObject) return;
 
         // If no object is selected, select this one
         if (!selectedObject) {
+            console.log('Selecting first object');
             selectedObject = clickedObject;
             highlightObject(clickedShape);
         } else if (selectedObject.id === clickedObject.id) {
             // If clicking same object, deselect it
+            console.log('Deselecting object');
             clearSelection();
         } else {
             // If an object was selected, create connection
+            console.log('Creating connection');
             drawConnection(selectedObject.id, clickedObject.id);
             clearSelection();
         }
@@ -795,22 +834,29 @@ stage.on('tap click', (e) => {
 
     // Handle delete mode
     if (currentTool === 'delete') {
+        console.log('Delete mode active');
         // Check if clicked on canvas background
-        if (e.target === stage) return;
+        if (e.target === stage) {
+            console.log('Clicked on stage, ignoring');
+            return;
+        }
 
         const clickedElement = e.target;
         const elementId = clickedElement.id();
+        console.log('Clicked element ID:', elementId);
 
         // Check if clicking a connection line
         if (elementId && elementId.startsWith('line-')) {
             // Extract connection ID from line ID (format: line-{connectionId})
             const connectionId = parseInt(elementId.split('-')[1]);
+            console.log('Deleting connection:', connectionId);
             deleteConnection(connectionId);
         } else {
             // It's an object (pole or transformer) - delete it
             for (let obj of objects) {
                 const shapeId = obj.type === 'pole' ? `pole-${obj.id}` : `transformer-${obj.id}`;
                 if (elementId === shapeId) {
+                    console.log('Deleting object:', obj.id);
                     deleteObject(obj.id);
                     break;
                 }
