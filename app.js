@@ -736,9 +736,11 @@ function deleteConnection(connectionId) {
 }
 
 // ==========================================
-// Canvas Click Handler for Object Placement
+// Canvas Click/Tap Handler for Object Placement
 // ==========================================
-stage.on('click', (e) => {
+// Use 'tap' event instead of 'click' for better mobile support
+// 'tap' works on both mobile (touch) and desktop (click)
+stage.on('tap click', (e) => {
     // If no tool is active, do nothing
     if (!currentTool) return;
 

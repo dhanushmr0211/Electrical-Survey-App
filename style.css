@@ -34,6 +34,7 @@ body {
     background-color: #e8e8e8;
     overflow: hidden;
     margin-bottom: 70px; /* Space for toolbar */
+    touch-action: none; /* Prevent default touch behaviors like scroll/zoom */
 }
 
 /* Bottom Fixed Toolbar */
@@ -78,6 +79,8 @@ body {
     justify-content: center;
     gap: 2px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    touch-action: manipulation; /* Improves touch responsiveness */
+    -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
 }
 
 .btn-icon {
