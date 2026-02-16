@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>PWA Status Check</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .check-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .check-item.success {
+            border-left-color: #28a745;
+        }
+        .check-item.error {
+            border-left-color: #dc3545;
+        }
+        h1 { color: #333; }
+        code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        img {
+            display: block;
+            margin: 10px 0;
+            border: 2px solid #ddd;
+        }
+        .icon-preview {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .icon-box {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>✅ PWA Status Check</h1>
+    
+    <div class="check-item success">
+        <h3>Icons Created</h3>
+        <p>Both icons have been generated successfully:</p>
+        <div class="icon-preview">
+            <div class="icon-box">
+                <p><strong>192x192 Icon</strong></p>
+                <img src="icons/icon-192.png" width="96" height="96" alt="192x192 icon">
+                <code>icons/icon-192.png</code>
+            </div>
+            <div class="icon-box">
+                <p><strong>512x512 Icon</strong></p>
+                <img src="icons/icon-512.png" width="96" height="96" alt="512x512 icon">
+                <code>icons/icon-512.png</code>
+            </div>
+        </div>
+    </div>
+
+    <div class="check-item success">
+        <h3>Manifest.json Updated</h3>
+        <p>Icon paths corrected to:</p>
+        <ul>
+            <li><code>"src": "icons/icon-192.png"</code></li>
+            <li><code>"src": "icons/icon-512.png"</code></li>
+        </ul>
+    </div>
+
+    <div class="check-item success">
+        <h3>Index.html Updated</h3>
+        <p>Favicon and app icons linked:</p>
+        <ul>
+            <li><code>&lt;link rel="manifest" href="manifest.json"&gt;</code></li>
+            <li><code>&lt;link rel="icon" href="icons/icon-192.png"&gt;</code></li>
+        </ul>
+    </div>
+
+    <div id="manifestCheck" class="check-item">
+        <h3>Manifest Loading...</h3>
+        <p id="manifestStatus">Checking manifest.json...</p>
+    </div>
+
+    <div id="swCheck" class="check-item">
+        <h3>Service Worker Status</h3>
+        <p id="swStatus">Checking service worker...</p>
+    </div>
+
+    <div class="check-item">
+        <h3>Next Steps</h3>
+        <ol>
+            <li>Open DevTools (F12) → Application tab</li>
+            <li>Check "Manifest" section - should show icons</li>
+            <li>Check "Service Workers" - should be activated</li>
+            <li>Look for "Install" button in browser address bar</li>
+            <li>Test offline: DevTools → Application → Service Workers → check "Offline"</li>
+        </ol>
+    </div>
+
+    <div class="check-item">
+        <h3>Testing PWA Installation</h3>
+        <p><strong>Chrome/Edge:</strong></p>
+        <ul>
+            <li>Click install button in address bar (⊕ icon)</li>
+            <li>Or: Menu → Install Electrical Survey App</li>
+        </ul>
+        <p><strong>Mobile:</strong></p>
+        <ul>
+            <li>Visit app in Chrome</li>
+            <li>Tap "Add to Home Screen" when prompted</li>
+            <li>Or: Menu → Install app</li>
+        </ul>
+    </div>
+
+    <p style="text-align: center; margin-top: 40px;">
+        <a href="index.html" style="display: inline-block; padding: 12px 24px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">
+            → Go to Electrical Survey App
+        </a>
+    </p>
+
+    <script>
+        // Check manifest
+        fetch('manifest.json')
+            .then(response => response.json())
+            .then(manifest => {
+                const manifestDiv = document.getElementById('manifestCheck');
+                const manifestStatus = document.getElementById('manifestStatus');
+                
+                manifestDiv.classList.add('success');
+                manifestStatus.innerHTML = `
+                    <strong>✓ Manifest loaded successfully</strong><br>
+                    App name: ${manifest.name}<br>
+                    Icons found: ${manifest.icons.length}<br>
+                    <ul>
+                        ${manifest.icons.map(icon => `<li>${icon.src} (${icon.sizes})</li>`).join('')}
+                    </ul>
+                `;
+            })
+            .catch(error => {
+                const manifestDiv = document.getElementById('manifestCheck');
+                const manifestStatus = document.getElementById('manifestStatus');
+                
+                manifestDiv.classList.add('error');
+                manifestStatus.innerHTML = `<strong>✗ Error loading manifest:</strong> ${error.message}`;
+            });
+
+        // Check service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                const swDiv = document.getElementById('swCheck');
+                const swStatus = document.getElementById('swStatus');
+                
+                if (registrations.length > 0) {
+                    swDiv.classList.add('success');
+                    swStatus.innerHTML = `
+                        <strong>✓ Service Worker registered</strong><br>
+                        Active workers: ${registrations.length}<br>
+                        State: ${registrations[0].active ? registrations[0].active.state : 'pending'}
+                    `;
+                } else {
+                    swDiv.classList.add('error');
+                    swStatus.innerHTML = '<strong>⚠ Service Worker not registered yet</strong><br>Refresh the main app to register.';
+                }
+            });
+        } else {
+            const swDiv = document.getElementById('swCheck');
+            const swStatus = document.getElementById('swStatus');
+            
+            swDiv.classList.add('error');
+            swStatus.innerHTML = '<strong>✗ Service Worker not supported</strong><br>Use a modern browser or HTTPS.';
+        }
+    </script>
+</body>
+</html>

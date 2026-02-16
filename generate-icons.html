@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate PWA Icons</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .canvas-container {
+            margin: 20px 0;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        canvas {
+            border: 2px solid #333;
+            display: block;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .info {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>PWA Icon Generator</h1>
+    <p>Click buttons below to download icons for your electrical survey app.</p>
+    
+    <div class="info">
+        <h3>Instructions:</h3>
+        <ol>
+            <li>Click "Generate Icons" button</li>
+            <li>Click "Download 192x192" and save as <code>icon-192.png</code> in the <code>icons</code> folder</li>
+            <li>Click "Download 512x512" and save as <code>icon-512.png</code> in the <code>icons</code> folder</li>
+            <li>Refresh your app to see the icons</li>
+        </ol>
+    </div>
+
+    <button onclick="generateIcons()">Generate Icons</button>
+    
+    <div class="canvas-container" id="canvasContainer"></div>
+
+    <script>
+        function generateIcons() {
+            const container = document.getElementById('canvasContainer');
+            container.innerHTML = '';
+
+            // Generate 192x192 icon
+            createIcon(192, container);
+            
+            // Generate 512x512 icon
+            createIcon(512, container);
+        }
+
+        function createIcon(size, container) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Background - black
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, size, size);
+
+            // Draw electrical bolt symbol (lightning)
+            ctx.fillStyle = '#FFFFFF';
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = size * 0.02;
+            ctx.lineJoin = 'miter';
+
+            // Scale based on size
+            const scale = size / 192;
+            const centerX = size / 2;
+            const centerY = size / 2;
+
+            // Lightning bolt path
+            ctx.beginPath();
+            ctx.moveTo(centerX - 20 * scale, centerY - 50 * scale);
+            ctx.lineTo(centerX + 10 * scale, centerY - 50 * scale);
+            ctx.lineTo(centerX - 15 * scale, centerY);
+            ctx.lineTo(centerX + 15 * scale, centerY);
+            ctx.lineTo(centerX - 10 * scale, centerY + 50 * scale);
+            ctx.lineTo(centerX + 20 * scale, centerY - 10 * scale);
+            ctx.lineTo(centerX + 5 * scale, centerY - 10 * scale);
+            ctx.lineTo(centerX + 25 * scale, centerY - 50 * scale);
+            ctx.closePath();
+            ctx.fill();
+
+            // Add subtle border
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, size - 2, size - 2);
+
+            // Add canvas to container
+            const wrapper = document.createElement('div');
+            const label = document.createElement('p');
+            label.innerHTML = `<strong>${size}x${size}</strong>`;
+            
+            const downloadBtn = document.createElement('button');
+            downloadBtn.textContent = `Download ${size}x${size}`;
+            downloadBtn.onclick = () => downloadCanvas(canvas, `icon-${size}.png`);
+
+            wrapper.appendChild(label);
+            wrapper.appendChild(canvas);
+            wrapper.appendChild(downloadBtn);
+            container.appendChild(wrapper);
+        }
+
+        function downloadCanvas(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // Generate on load
+        window.onload = () => generateIcons();
+    </script>
+</body>
+</html>

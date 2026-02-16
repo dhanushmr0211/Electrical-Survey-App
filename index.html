@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <meta name="description" content="Progressive web app for electrical surveys and system mapping">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Electrical Survey</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Container for Konva stage -->
+    <div id="container"></div>
+
+    <!-- Toolbar (Bottom Fixed) -->
+    <div id="toolbar">
+        <button id="addPoleBtn" class="toolbar-btn" title="Add Pole"><span class="btn-icon">⬤</span><span class="btn-label">Pole</span></button>
+        <button id="addTransformerBtn" class="toolbar-btn" title="Add Transformer"><span class="btn-icon">▭</span><span class="btn-label">Transformer</span></button>
+        <button id="connectModeBtn" class="toolbar-btn" title="Connect"><span class="btn-icon">⟿</span><span class="btn-label">Connect</span></button>
+        <button id="deleteBtn" class="toolbar-btn" title="Delete"><span class="btn-icon">✕</span><span class="btn-label">Delete</span></button>
+        <button id="undoBtn" class="toolbar-btn" title="Undo"><span class="btn-icon">↶</span><span class="btn-label">Undo</span></button>
+        <button id="redoBtn" class="toolbar-btn" title="Redo"><span class="btn-icon">↷</span><span class="btn-label">Redo</span></button>
+        <button id="saveBtn" class="toolbar-btn" title="Save"><span class="btn-icon">💾</span><span class="btn-label">Save</span></button>
+        <button id="loadBtn" class="toolbar-btn" title="Load"><span class="btn-icon">📂</span><span class="btn-label">Load</span></button>
+        <button id="newPageBtn" class="toolbar-btn" title="New Page"><span class="btn-icon">+</span><span class="btn-label">New</span></button>
+    </div>
+
+    <!-- Konva.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/konva@9/konva.min.js"></script>
+
+    <!-- Application JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>
