@@ -1,5 +1,5 @@
 // Service Worker for Electrical Survey App PWA
-const CACHE_NAME = 'electrical-survey-v2-mobile-fix';
+const CACHE_NAME = 'electrical-survey-v3-zoom-pan';
 const ASSETS_TO_CACHE = [
   '.',
   './index.html',
