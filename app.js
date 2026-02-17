@@ -10,12 +10,19 @@ if ('serviceWorker' in navigator) {
             .then((registration) => {
                 console.log('Service Worker registered:', registration);
 
-                // 1. Check for updates every 60 seconds
+                // 1. Force check immediately
+                registration.update();
+
+                // 2. Check for updates every 10 seconds (more frequent to catch issues)
                 setInterval(() => {
                     registration.update();
-                }, 60 * 1000);
+                    // Also check if a worker is waiting (in case we missed the event)
+                    if (registration.waiting) {
+                        showUpdateNotification(registration);
+                    }
+                }, 10 * 1000);
 
-                // 2. Handle updates found
+                // 3. Handle updates found
                 registration.addEventListener('updatefound', () => {
                     newWorker = registration.installing;
 
@@ -28,7 +35,7 @@ if ('serviceWorker' in navigator) {
                     });
                 });
 
-                // 3. Handle waiting worker (if already updated in background)
+                // 4. Handle waiting worker (if already updated in background)
                 if (registration.waiting) {
                     showUpdateNotification(registration);
                 }
