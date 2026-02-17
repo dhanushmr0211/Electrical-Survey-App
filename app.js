@@ -48,73 +48,92 @@ if ('serviceWorker' in navigator) {
 
 function showUpdateNotification(registration) {
     // Check if notification already exists to avoid duplicates
-    if (document.getElementById('update-toast')) return;
+    if (document.getElementById('update-overlay')) return;
 
+    // Create blocking overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'update-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.85)'; // Darker backdrop
+    overlay.style.zIndex = '20000'; // Highest z-index to block everything
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.backdropFilter = 'blur(5px)'; // Blur effect for background
+
+    // Notification Box
     const toast = document.createElement('div');
-    toast.id = 'update-toast';
-    toast.style.position = 'fixed';
-    toast.style.bottom = '90px'; // Positioned slightly above toolbar
-    toast.style.left = '50%';
-    toast.style.transform = 'translateX(-50%)';
     toast.style.backgroundColor = '#222';
     toast.style.color = 'white';
-    toast.style.padding = '12px 24px';
-    toast.style.borderRadius = '50px';
-    toast.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
-    toast.style.display = 'flex';
-    toast.style.alignItems = 'center';
-    toast.style.justifyContent = 'space-between';
-    toast.style.gap = '15px';
-    toast.style.zIndex = '10000';
+    toast.style.padding = '30px';
+    toast.style.borderRadius = '16px';
+    toast.style.boxShadow = '0 10px 30px rgba(0,0,0,0.6)';
+    toast.style.textAlign = 'center';
+    toast.style.maxWidth = '90%';
+    toast.style.width = '320px';
     toast.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    toast.style.fontSize = '14px';
-    toast.style.transition = 'all 0.3s ease';
 
-    const text = document.createElement('span');
-    text.textContent = 'New version available';
-    text.style.fontWeight = '500';
+    // Icon (optional but nice)
+    const icon = document.createElement('div');
+    icon.innerHTML = '🚀';
+    icon.style.fontSize = '40px';
+    icon.style.marginBottom = '15px';
+
+    const title = document.createElement('h3');
+    title.textContent = 'Update Required';
+    title.style.margin = '0 0 10px 0';
+    title.style.fontSize = '20px';
+    title.style.fontWeight = '600';
+
+    const text = document.createElement('p');
+    text.textContent = 'A new version of the app is available. Please update to continue.';
+    text.style.margin = '0 0 25px 0';
+    text.style.fontSize = '14px';
+    text.style.color = '#ccc';
+    text.style.lineHeight = '1.5';
 
     const refreshBtn = document.createElement('button');
-    refreshBtn.textContent = 'Refresh';
-    refreshBtn.style.backgroundColor = '#4CAF50';
+    refreshBtn.textContent = 'Update Now';
+    refreshBtn.style.backgroundColor = '#007bff'; // Blue for primary action
     refreshBtn.style.color = 'white';
     refreshBtn.style.border = 'none';
-    refreshBtn.style.padding = '8px 16px';
-    refreshBtn.style.borderRadius = '20px';
+    refreshBtn.style.padding = '12px 24px';
+    refreshBtn.style.borderRadius = '8px';
     refreshBtn.style.cursor = 'pointer';
     refreshBtn.style.fontWeight = 'bold';
-    refreshBtn.style.fontSize = '12px';
-    refreshBtn.style.textTransform = 'uppercase';
-    refreshBtn.style.letterSpacing = '0.5px';
-    refreshBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+    refreshBtn.style.fontSize = '16px';
+    refreshBtn.style.width = '100%';
+    refreshBtn.style.transition = 'background 0.2s';
+    refreshBtn.style.boxShadow = '0 4px 6px rgba(0,0,0,0.2)';
+
+    refreshBtn.onmouseover = () => { refreshBtn.style.backgroundColor = '#0056b3'; };
+    refreshBtn.onmouseout = () => { refreshBtn.style.backgroundColor = '#007bff'; };
 
     refreshBtn.onclick = () => {
         if (registration.waiting) {
             // Send message to waiting worker to skip waiting
             registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-            // Disable button to prevent double clicks
             refreshBtn.disabled = true;
             refreshBtn.textContent = 'Updating...';
+            refreshBtn.style.opacity = '0.7';
+            refreshBtn.style.cursor = 'wait';
         } else {
             window.location.reload();
         }
     };
 
-    const closeBtn = document.createElement('span');
-    closeBtn.innerHTML = '&times;';
-    closeBtn.style.cursor = 'pointer';
-    closeBtn.style.fontSize = '20px';
-    closeBtn.style.marginLeft = '5px';
-    closeBtn.style.opacity = '0.7';
-    closeBtn.onclick = () => {
-        document.body.removeChild(toast);
-    };
-
+    toast.appendChild(icon);
+    toast.appendChild(title);
     toast.appendChild(text);
     toast.appendChild(refreshBtn);
-    toast.appendChild(closeBtn);
 
-    document.body.appendChild(toast);
+    overlay.appendChild(toast);
+    document.body.appendChild(overlay);
 }
 
 // ==========================================
