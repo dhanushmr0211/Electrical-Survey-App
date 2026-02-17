@@ -1280,6 +1280,12 @@ function createPole(x, y) {
         updateConnectionLines(pole.id);
     });
 
+    group.on('dragend', () => {
+        pole.x = group.x();
+        pole.y = group.y();
+        autoSave();
+    });
+
     // Add group to layer
     layer.add(group);
     layer.draw();
@@ -1337,6 +1343,12 @@ function recreatePole(poleData) {
         updateConnectionLines(poleData.id);
     });
 
+    group.on('dragend', () => {
+        poleData.x = group.x();
+        poleData.y = group.y();
+        autoSave();
+    });
+
     // Add group to layer
     layer.add(group);
 
@@ -1377,6 +1389,12 @@ function createTransformer(x, y) {
         updateConnectionLines(transformer.id);
     });
 
+    rect.on('dragend', () => {
+        transformer.x = rect.x() + TRANSFORMER_WIDTH / 2;
+        transformer.y = rect.y() + TRANSFORMER_HEIGHT / 2;
+        autoSave();
+    });
+
     // Add rectangle to layer
     layer.add(rect);
     layer.draw();
@@ -1409,6 +1427,12 @@ function recreateTransformer(transformerData) {
         transformerData.x = rect.x() + TRANSFORMER_WIDTH / 2;
         transformerData.y = rect.y() + TRANSFORMER_HEIGHT / 2;
         updateConnectionLines(transformerData.id);
+    });
+
+    rect.on('dragend', () => {
+        transformerData.x = rect.x() + TRANSFORMER_WIDTH / 2;
+        transformerData.y = rect.y() + TRANSFORMER_HEIGHT / 2;
+        autoSave();
     });
 
     // Add rectangle to layer
@@ -1514,6 +1538,12 @@ function createSwitch(x, y) {
         updateConnectionLines(switchObj.id);
     });
 
+    group.on('dragend', () => {
+        switchObj.x = group.x();
+        switchObj.y = group.y();
+        autoSave();
+    });
+
     layer.add(group);
     layer.draw();
     saveHistory();
@@ -1569,6 +1599,12 @@ function recreateSwitch(switchData) {
         updateConnectionLines(switchData.id);
     });
 
+    group.on('dragend', () => {
+        switchData.x = group.x();
+        switchData.y = group.y();
+        autoSave();
+    });
+
     layer.add(group);
     return group;
 }
@@ -1604,6 +1640,12 @@ function createText(x, y, content) {
     textNode.on('dragmove', () => {
         textObj.x = textNode.x();
         textObj.y = textNode.y();
+    });
+
+    textNode.on('dragend', () => {
+        textObj.x = textNode.x();
+        textObj.y = textNode.y();
+        autoSave();
     });
 
     // Add transform event to update font size or scale
