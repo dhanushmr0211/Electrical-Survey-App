@@ -1,31 +1,37 @@
 // ==========================================
-// Service Worker Registration (PWA)
+// Service Worker Registration & Update Logic
 // ==========================================
 if ('serviceWorker' in navigator) {
     let newWorker;
+    let refreshing = false;
 
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./service-worker.js')
             .then((registration) => {
                 console.log('Service Worker registered:', registration);
 
-                // Check if there's a waiting worker (update ready)
-                if (registration.waiting) {
-                    showUpdateNotification();
-                    return;
-                }
+                // 1. Check for updates every 60 seconds
+                setInterval(() => {
+                    registration.update();
+                }, 60 * 1000);
 
-                // Track updates
+                // 2. Handle updates found
                 registration.addEventListener('updatefound', () => {
                     newWorker = registration.installing;
 
                     newWorker.addEventListener('statechange', () => {
+                        // Has network.state changed?
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            // New update available
-                            showUpdateNotification();
+                            // New update available and installed (waiting)
+                            showUpdateNotification(registration);
                         }
                     });
                 });
+
+                // 3. Handle waiting worker (if already updated in background)
+                if (registration.waiting) {
+                    showUpdateNotification(registration);
+                }
             })
             .catch((error) => {
                 console.log('Service Worker registration failed:', error);
@@ -33,7 +39,6 @@ if ('serviceWorker' in navigator) {
     });
 
     // Reload when the new service worker takes control
-    let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (refreshing) return;
         refreshing = true;
@@ -41,59 +46,66 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-function showUpdateNotification() {
-    // Check if notification already exists
+function showUpdateNotification(registration) {
+    // Check if notification already exists to avoid duplicates
     if (document.getElementById('update-toast')) return;
 
     const toast = document.createElement('div');
     toast.id = 'update-toast';
     toast.style.position = 'fixed';
-    toast.style.bottom = '80px'; // Above toolbar
+    toast.style.bottom = '90px'; // Positioned slightly above toolbar
     toast.style.left = '50%';
     toast.style.transform = 'translateX(-50%)';
-    toast.style.backgroundColor = '#333';
+    toast.style.backgroundColor = '#222';
     toast.style.color = 'white';
-    toast.style.padding = '12px 20px';
+    toast.style.padding = '12px 24px';
     toast.style.borderRadius = '50px';
-    toast.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
+    toast.style.boxShadow = '0 6px 16px rgba(0,0,0,0.4)';
     toast.style.display = 'flex';
     toast.style.alignItems = 'center';
+    toast.style.justifyContent = 'space-between';
     toast.style.gap = '15px';
     toast.style.zIndex = '10000';
-    toast.style.fontFamily = 'Arial, sans-serif';
+    toast.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     toast.style.fontSize = '14px';
+    toast.style.transition = 'all 0.3s ease';
 
     const text = document.createElement('span');
-    text.textContent = 'New version available!';
+    text.textContent = 'New version available';
+    text.style.fontWeight = '500';
 
     const refreshBtn = document.createElement('button');
     refreshBtn.textContent = 'Refresh';
     refreshBtn.style.backgroundColor = '#4CAF50';
     refreshBtn.style.color = 'white';
     refreshBtn.style.border = 'none';
-    refreshBtn.style.padding = '5px 12px';
+    refreshBtn.style.padding = '8px 16px';
     refreshBtn.style.borderRadius = '20px';
     refreshBtn.style.cursor = 'pointer';
     refreshBtn.style.fontWeight = 'bold';
+    refreshBtn.style.fontSize = '12px';
+    refreshBtn.style.textTransform = 'uppercase';
+    refreshBtn.style.letterSpacing = '0.5px';
+    refreshBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
 
     refreshBtn.onclick = () => {
-        // Skip waiting creates a new controller, triggering controllerchange -> reload
-        // But we need to tell the waiting worker to skip waiting.
-        // We can't access registration easily here unless global or re-fetch.
-        navigator.serviceWorker.getRegistration().then(reg => {
-            if (reg && reg.waiting) {
-                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-            } else {
-                window.location.reload();
-            }
-        });
+        if (registration.waiting) {
+            // Send message to waiting worker to skip waiting
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            // Disable button to prevent double clicks
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = 'Updating...';
+        } else {
+            window.location.reload();
+        }
     };
 
     const closeBtn = document.createElement('span');
     closeBtn.innerHTML = '&times;';
     closeBtn.style.cursor = 'pointer';
-    closeBtn.style.fontSize = '18px';
+    closeBtn.style.fontSize = '20px';
     closeBtn.style.marginLeft = '5px';
+    closeBtn.style.opacity = '0.7';
     closeBtn.onclick = () => {
         document.body.removeChild(toast);
     };
