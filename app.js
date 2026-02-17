@@ -61,6 +61,9 @@ const stage = new Konva.Stage({
 // Zoom & Pan Logic
 // ==========================================
 const scaleBy = 1.1;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 4.0;
+const INITIAL_SCALE = 1;
 
 function getDistance(p1, p2) {
     return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
@@ -116,17 +119,20 @@ stage.on('touchmove', function (e) {
             y: (newCenter.y - stage.y()) / stage.scaleX(),
         };
 
-        var scale = stage.scaleX() * (dist / lastDist);
+        var newScale = stage.scaleX() * (dist / lastDist);
 
-        stage.scale({ x: scale, y: scale });
+        // Clamp scale
+        newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
+
+        stage.scale({ x: newScale, y: newScale });
 
         // calculate new position of the stage
         var dx = newCenter.x - lastCenter.x;
         var dy = newCenter.y - lastCenter.y;
 
         var newPos = {
-            x: newCenter.x - pointTo.x * scale + dx,
-            y: newCenter.y - pointTo.y * scale + dy,
+            x: newCenter.x - pointTo.x * newScale + dx,
+            y: newCenter.y - pointTo.y * newScale + dy,
         };
 
         stage.position(newPos);
@@ -155,6 +161,9 @@ stage.on('wheel', (e) => {
 
     var newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
 
+    // Clamp scale
+    newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
+
     stage.scale({ x: newScale, y: newScale });
 
     var newPos = {
@@ -164,22 +173,45 @@ stage.on('wheel', (e) => {
     stage.position(newPos);
 });
 
+// Cursor changes for Panning
+stage.on('draggableChange', () => {
+    if (stage.draggable()) {
+        stage.container().style.cursor = 'grab';
+    } else {
+        stage.container().style.cursor = 'default';
+    }
+});
+
+stage.on('dragstart', (e) => {
+    if (e.target === stage) {
+        stage.container().style.cursor = 'grabbing';
+    }
+});
+
+stage.on('dragend', (e) => {
+    if (e.target === stage) {
+        stage.container().style.cursor = 'grab';
+    }
+});
+
 // Zoom Buttons
 document.getElementById('zoomInBtn').addEventListener('click', () => {
     const oldScale = stage.scaleX();
-    const newScale = oldScale * scaleBy;
+    let newScale = oldScale * scaleBy;
+    newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
     applyZoom(newScale);
 });
 
 document.getElementById('zoomOutBtn').addEventListener('click', () => {
     const oldScale = stage.scaleX();
-    const newScale = oldScale / scaleBy;
+    let newScale = oldScale / scaleBy;
+    newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
     applyZoom(newScale);
 });
 
 document.getElementById('fitViewBtn').addEventListener('click', () => {
     stage.position({ x: 0, y: 0 });
-    stage.scale({ x: 1, y: 1 });
+    stage.scale({ x: INITIAL_SCALE, y: INITIAL_SCALE });
 });
 
 function applyZoom(newScale) {
@@ -232,6 +264,8 @@ panBtn.addEventListener('click', () => {
     if (currentTool === 'pan') {
         currentTool = null;
         panBtn.classList.remove('active');
+        stage.container().style.cursor = 'default';
+        stage.draggable(true); // Always draggable by default as per requirement
     } else {
         currentTool = 'pan';
         panBtn.classList.add('active');
@@ -240,6 +274,8 @@ panBtn.addEventListener('click', () => {
         connectModeBtn.classList.remove('active');
         deleteBtn.classList.remove('active');
         clearSelection();
+        stage.container().style.cursor = 'grab';
+        stage.draggable(true);
     }
 });
 
