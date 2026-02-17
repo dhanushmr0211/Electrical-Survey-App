@@ -24,7 +24,10 @@ const TRANSFORMER_COLOR = '#0066ff';
 const HIGHLIGHT_STROKE = '#ff0000';
 const HIGHLIGHT_STROKE_WIDTH = 2;
 const CONNECTION_LINE_WIDTH = 3;
+
 const CONNECTION_LINE_COLOR = '#000000';
+const SWITCH_SIZE = 20;
+const SWITCH_COLOR = '#000000';
 
 let objects = [];
 let objectIdCounter = 0;
@@ -251,7 +254,9 @@ layer.draw();
 // ==========================================
 const panBtn = document.getElementById('panBtn');
 const addPoleBtn = document.getElementById('addPoleBtn');
+const addSwitchBtn = document.getElementById('addSwitchBtn');
 const addTransformerBtn = document.getElementById('addTransformerBtn');
+const textModeBtn = document.getElementById('textModeBtn');
 const connectModeBtn = document.getElementById('connectModeBtn');
 const deleteBtn = document.getElementById('deleteBtn');
 const undoBtn = document.getElementById('undoBtn');
@@ -272,6 +277,7 @@ panBtn.addEventListener('click', () => {
         panBtn.classList.add('active');
         addPoleBtn.classList.remove('active');
         addTransformerBtn.classList.remove('active');
+        textModeBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
         deleteBtn.classList.remove('active');
         clearSelection();
@@ -289,10 +295,16 @@ addPoleBtn.addEventListener('click', () => {
         addPoleBtn.classList.add('active');
         panBtn.classList.remove('active');
         addTransformerBtn.classList.remove('active');
+        textModeBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
         deleteBtn.classList.remove('active');
         clearSelection();
     }
+});
+
+addSwitchBtn.addEventListener('click', () => {
+    // This is an instant action, not a tool mode
+    createSwitchAdjacentToLastPole();
 });
 
 addTransformerBtn.addEventListener('click', () => {
@@ -304,6 +316,23 @@ addTransformerBtn.addEventListener('click', () => {
         addTransformerBtn.classList.add('active');
         panBtn.classList.remove('active');
         addPoleBtn.classList.remove('active');
+        textModeBtn.classList.remove('active');
+        connectModeBtn.classList.remove('active');
+        deleteBtn.classList.remove('active');
+        clearSelection();
+    }
+});
+
+textModeBtn.addEventListener('click', () => {
+    if (currentTool === 'text') {
+        currentTool = null;
+        textModeBtn.classList.remove('active');
+    } else {
+        currentTool = 'text';
+        textModeBtn.classList.add('active');
+        panBtn.classList.remove('active');
+        addPoleBtn.classList.remove('active');
+        addTransformerBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
         deleteBtn.classList.remove('active');
         clearSelection();
@@ -322,6 +351,7 @@ connectModeBtn.addEventListener('click', () => {
         panBtn.classList.remove('active');
         addPoleBtn.classList.remove('active');
         addTransformerBtn.classList.remove('active');
+        textModeBtn.classList.remove('active');
         deleteBtn.classList.remove('active');
         clearSelection();
         console.log('Connect mode activated');
@@ -340,6 +370,7 @@ deleteBtn.addEventListener('click', () => {
         panBtn.classList.remove('active');
         addPoleBtn.classList.remove('active');
         addTransformerBtn.classList.remove('active');
+        textModeBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
         clearSelection();
         console.log('Delete mode activated');
@@ -430,6 +461,10 @@ function loadState(state) {
             recreatePole(obj);
         } else if (obj.type === 'transformer') {
             recreateTransformer(obj);
+        } else if (obj.type === 'switch') {
+            recreateSwitch(obj);
+        } else if (obj.type === 'text') {
+            recreateText(obj);
         }
     });
 
@@ -609,6 +644,7 @@ function newPage() {
     panBtn.classList.remove('active');
     addPoleBtn.classList.remove('active');
     addTransformerBtn.classList.remove('active');
+    textModeBtn.classList.remove('active');
     connectModeBtn.classList.remove('active');
     deleteBtn.classList.remove('active');
 
@@ -680,7 +716,7 @@ function createPole(x, y) {
     // Create Text for Pole Number
     const text = new Konva.Text({
         x: 12,
-        y: -10,
+        y: -14, // Moved up from -10 to -14 (approx 4px / ~0.1cm)
         text: currentPoleNum.toString(),
         fontSize: 14,
         fontFamily: 'Arial',
@@ -737,7 +773,7 @@ function recreatePole(poleData) {
     // Create Text for Pole Number
     const text = new Konva.Text({
         x: 12,
-        y: -10,
+        y: -14, // Moved up from -10 to -14 (approx 4px / ~0.1cm)
         text: (poleData.poleNumber || "").toString(),
         fontSize: 14,
         fontFamily: 'Arial',
@@ -833,6 +869,392 @@ function recreateTransformer(transformerData) {
     layer.add(rect);
 
     return rect;
+}
+
+// ==========================================
+// Switch (SR) Functions
+// ==========================================
+function createSwitchAdjacentToLastPole() {
+    // Find the latest pole
+    let lastPole = null;
+    // Iterate backwards to find last added pole
+    for (let i = objects.length - 1; i >= 0; i--) {
+        if (objects[i].type === 'pole') {
+            lastPole = objects[i];
+            break;
+        }
+    }
+
+    let x, y;
+    if (lastPole) {
+        // Place adjacent to the last pole (e.g., to the right)
+        x = lastPole.x + 30; // 30px offset
+        y = lastPole.y;
+    } else {
+        // Default to center if no poles
+        const center = getCenter({ x: 0, y: 0 }, { x: stage.width(), y: stage.height() });
+        // Adjust for stage transform
+        const transform = stage.getAbsoluteTransform().copy();
+        transform.invert();
+        const pos = transform.point(center);
+        x = pos.x;
+        y = pos.y;
+    }
+
+    createSwitch(x, y);
+}
+
+function createSwitch(x, y) {
+    const switchObj = {
+        id: objectIdCounter++,
+        x: x,
+        y: y,
+        type: 'switch'
+    };
+
+    objects.push(switchObj);
+
+    // Create Switch Shape (Group)
+    const group = new Konva.Group({
+        x: x,
+        y: y,
+        draggable: true,
+        id: `switch-${switchObj.id}`
+    });
+
+    // Draw a switch symbol: a box with "SR" text or a schematic symbol
+    // Requirement said: "logo of switch"
+    // Let's make a small rectangle with a diagonal line to look like a switch
+
+    // Main body (tiny connection box)
+    const box = new Konva.Rect({
+        x: -10,
+        y: -10,
+        width: 20,
+        height: 20,
+        fill: 'white',
+        stroke: 'black',
+        strokeWidth: 2
+    });
+
+    // Switch lever (open state)
+    const lever = new Konva.Line({
+        points: [-5, 5, 10, -10],
+        stroke: 'black',
+        strokeWidth: 2,
+        lineCap: 'round'
+    });
+
+    // Label "SR"
+    const text = new Konva.Text({
+        x: -10,
+        y: 12,
+        text: 'SR',
+        fontSize: 10,
+        fontFamily: 'Arial',
+        fill: 'black',
+        fontStyle: 'bold',
+        align: 'center',
+        width: 20
+    });
+
+    group.add(box);
+    group.add(lever);
+    group.add(text);
+
+    group.on('dragmove', () => {
+        switchObj.x = group.x();
+        switchObj.y = group.y();
+        updateConnectionLines(switchObj.id);
+    });
+
+    layer.add(group);
+    layer.draw();
+    saveHistory();
+    return group;
+}
+
+function recreateSwitch(switchData) {
+    objects.push(switchData);
+
+    const group = new Konva.Group({
+        x: switchData.x,
+        y: switchData.y,
+        draggable: true,
+        id: `switch-${switchData.id}`
+    });
+
+    const box = new Konva.Rect({
+        x: -10,
+        y: -10,
+        width: 20,
+        height: 20,
+        fill: 'white',
+        stroke: 'black',
+        strokeWidth: 2
+    });
+
+    const lever = new Konva.Line({
+        points: [-5, 5, 10, -10],
+        stroke: 'black',
+        strokeWidth: 2,
+        lineCap: 'round'
+    });
+
+    const text = new Konva.Text({
+        x: -10,
+        y: 12,
+        text: 'SR',
+        fontSize: 10,
+        fontFamily: 'Arial',
+        fill: 'black',
+        fontStyle: 'bold',
+        align: 'center',
+        width: 20
+    });
+
+    group.add(box);
+    group.add(lever);
+    group.add(text);
+
+    group.on('dragmove', () => {
+        switchData.x = group.x();
+        switchData.y = group.y();
+        updateConnectionLines(switchData.id);
+    });
+
+    layer.add(group);
+    return group;
+}
+
+// ==========================================
+// Text Tool Functions
+// ==========================================
+function createText(x, y, content) {
+    // Create text object
+    const textObj = {
+        id: objectIdCounter++,
+        x: x,
+        y: y,
+        type: 'text',
+        content: content
+    };
+
+    objects.push(textObj);
+
+    // Create Konva Text
+    const textNode = new Konva.Text({
+        x: x,
+        y: y,
+        text: content,
+        fontSize: 16,
+        fontFamily: 'Arial',
+        fill: 'black',
+        fontStyle: 'bold',
+        draggable: true,
+        id: `text-${textObj.id}`
+    });
+
+    textNode.on('dragmove', () => {
+        textObj.x = textNode.x();
+        textObj.y = textNode.y();
+    });
+
+    // Add transform event to update font size or scale
+    textNode.on('transform', () => {
+        // Reset scale and update font size properly
+        const scaleX = textNode.scaleX();
+        textNode.scaleX(1);
+        textNode.scaleY(1);
+        textNode.fontSize(textNode.fontSize() * scaleX);
+        textObj.content = textNode.text(); // ensure content is up to date though transform doesn't change it
+        // textObj store fontSize update? 
+        // We simplified the objects array structure, maybe we should add properties like fontSize if we want persistence.
+        // For now, let's just allow visual resizing.
+    });
+
+    // Add double-click/double-tap to edit
+    textNode.on('dblclick dbltap', () => {
+        editText(textObj, textNode);
+    });
+
+    // Add click to select/resize
+    textNode.on('click tap', (e) => {
+        // Prevent stage click processing
+        e.cancelBubble = true;
+        selectTextForResizing(textNode);
+    });
+
+    layer.add(textNode);
+    layer.draw();
+    saveHistory();
+    return textNode;
+}
+
+// Global transformer for resizing
+let resizeTransformer = new Konva.Transformer({
+    nodes: [],
+    enabledAnchors: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
+    boundBoxFunc: function (oldBox, newBox) {
+        newBox.width = Math.max(30, newBox.width);
+        return newBox;
+    },
+});
+layer.add(resizeTransformer);
+
+function selectTextForResizing(textNode) {
+    if (currentTool === 'delete') return; // Don't select if deleting
+    resizeTransformer.nodes([textNode]);
+    layer.draw();
+}
+
+function clearResizeSelection() {
+    resizeTransformer.nodes([]);
+    layer.draw();
+}
+
+function recreateText(textData) {
+    objects.push(textData);
+
+    const textNode = new Konva.Text({
+        x: textData.x,
+        y: textData.y,
+        text: textData.content,
+        fontSize: 16, // defaulting to 16 if not saved, ideally we should save fontSize
+        fontFamily: 'Arial',
+        fill: 'black',
+        fontStyle: 'bold',
+        draggable: true,
+        id: `text-${textData.id}`
+    });
+
+    textNode.on('dragmove', () => {
+        textData.x = textNode.x();
+        textData.y = textNode.y();
+    });
+
+    textNode.on('transform', () => {
+        const scaleX = textNode.scaleX();
+        textNode.scaleX(1);
+        textNode.scaleY(1);
+        textNode.fontSize(textNode.fontSize() * scaleX);
+    });
+
+    // Add double-click/double-tap to edit
+    textNode.on('dblclick dbltap', () => {
+        editText(textData, textNode);
+    });
+
+    // Add click to select/resize
+    textNode.on('click tap', (e) => {
+        e.cancelBubble = true;
+        selectTextForResizing(textNode);
+    });
+
+    layer.add(textNode);
+    return textNode;
+}
+
+function editText(textObj, textNode) {
+    // Hide text node and transformer while editing
+    textNode.hide();
+    resizeTransformer.nodes([]); // Deselect
+    layer.draw();
+
+    // Create textarea over the canvas
+    const textPosition = textNode.absolutePosition();
+    const areaPosition = {
+        x: stage.container().getBoundingClientRect().left + textPosition.x,
+        y: stage.container().getBoundingClientRect().top + textPosition.y,
+    };
+
+    const textarea = document.createElement('textarea');
+    document.body.appendChild(textarea);
+
+    textarea.value = textObj.content;
+    textarea.style.position = 'absolute';
+    textarea.style.top = areaPosition.y + 'px';
+    textarea.style.left = areaPosition.x + 'px';
+    textarea.style.width = textNode.width() - textNode.padding() * 2 + 'px';
+    textarea.style.height = textNode.height() - textNode.padding() * 2 + 5 + 'px';
+    textarea.style.fontSize = textNode.fontSize() + 'px';
+    textarea.style.border = 'none';
+    textarea.style.padding = '0px';
+    textarea.style.margin = '0px';
+    textarea.style.overflow = 'hidden';
+    textarea.style.background = 'none';
+    textarea.style.outline = 'none';
+    textarea.style.resize = 'none';
+    textarea.style.lineHeight = textNode.lineHeight();
+    textarea.style.fontFamily = textNode.fontFamily();
+    textarea.style.transformOrigin = 'left top';
+    textarea.style.textAlign = textNode.align();
+    textarea.style.color = textNode.fill();
+    textarea.style.fontWeight = 'bold';
+    textarea.style.zIndex = '1000'; // Ensure it's on top
+
+    rotation = textNode.rotation();
+    var transform = '';
+    if (rotation) {
+        transform += 'rotateZ(' + rotation + 'deg)';
+    }
+
+    var px = 0;
+    // also we need to slightly move textarea on firefox
+    // because it jumps a bit
+    var isFirefox =
+        navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+    if (isFirefox) {
+        px += 2 + Math.round(textNode.fontSize() / 20);
+    }
+    transform += 'translateY(-' + px + 'px)';
+
+    textarea.style.transform = transform;
+
+    // reset height
+    textarea.style.height = 'auto';
+    // after browsers resized it we can set actual value
+    textarea.style.height = textarea.scrollHeight + 3 + 'px';
+
+    textarea.focus();
+
+    function removeTextarea() {
+        if (!document.body.contains(textarea)) return;
+
+        textarea.parentNode.removeChild(textarea);
+        window.removeEventListener('click', handleOutsideClick);
+        textNode.show();
+        layer.draw();
+    }
+
+    function updateText() {
+        textNode.text(textarea.value);
+        textObj.content = textarea.value;
+        saveHistory(); // Save state after edit
+        layer.draw();
+    }
+
+    textarea.addEventListener('keydown', function (e) {
+        // Shift+Enter for new line is default behavior of textarea, so we just check for Enter without Shift to submit?
+        // User asked: "when i type enter while texting then it should got to the next line"
+        // So Enter DOES NOT SUBMIT. Enter creates new line.
+        // We submit by clicking outside.
+
+        // Auto resize height
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    });
+
+    function handleOutsideClick(e) {
+        if (e.target !== textarea) {
+            updateText();
+            removeTextarea();
+        }
+    }
+
+    setTimeout(() => {
+        window.addEventListener('click', handleOutsideClick);
+    });
 }
 
 // ==========================================
@@ -1026,16 +1448,17 @@ function deleteObject(objectId) {
     objects = objects.filter(obj => obj.id !== objectId);
 
     // Find and remove the shape from canvas
-    // Try to find as pole first, then as transformer
     let shape = layer.findOne(`#pole-${objectId}`);
-    if (!shape) {
-        shape = layer.findOne(`#transformer-${objectId}`);
-    }
+    if (!shape) shape = layer.findOne(`#transformer-${objectId}`);
+    if (!shape) shape = layer.findOne(`#switch-${objectId}`);
+    if (!shape) shape = layer.findOne(`#text-${objectId}`);
+
     if (shape) {
         shape.remove();
     }
 
     // Find and remove all connections involving this object
+    // Texts usually don't have connections in this app logic, but safety check
     const connectionsToDelete = connections.filter(conn =>
         conn.from === objectId || conn.to === objectId
     );
@@ -1089,12 +1512,23 @@ stage.on('tap click', (e) => {
     if (!currentTool) return;
 
     // If pan tool is active, ignore clicks (only drag allowed)
-    if (currentTool === 'pan') return;
+    if (currentTool === 'pan') {
+        // Also possibly clear selection if clicking outside
+        return;
+    }
+
+    // If clicking stage (background), clear resize selection
+    if (e.target === stage) {
+        clearResizeSelection();
+    }
 
     // Handle placement modes
-    if (currentTool === 'pole' || currentTool === 'transformer') {
+    if (currentTool === 'pole' || currentTool === 'transformer' || currentTool === 'text') {
         // Ignore clicks on shapes
-        if (e.target !== stage) return;
+        if (currentTool !== 'text' && e.target !== stage) return;
+
+        // For text, we might want to allow editing if clicking existing text, but for now mostly placement
+        if (currentTool === 'text' && e.target !== stage) return;
 
         // Get click position
         const pointer = stage.getPointerPosition();
@@ -1112,6 +1546,54 @@ stage.on('tap click', (e) => {
             createPole(pos.x, pos.y);
         } else if (currentTool === 'transformer') {
             createTransformer(pos.x, pos.y);
+        } else if (currentTool === 'text') {
+            // Check if clicking existing text is handled by dblclick
+            // If we click empty space, create new text
+
+            // Create textarea for new input
+            const textarea = document.createElement('textarea');
+            document.body.appendChild(textarea);
+
+            textarea.style.position = 'absolute';
+            textarea.style.top = `${pointer.y + container.offsetTop}px`;
+            textarea.style.left = `${pointer.x + container.offsetLeft}px`;
+            textarea.style.zIndex = '1000';
+            textarea.style.fontWeight = 'bold';
+            textarea.placeholder = 'Type text...';
+            textarea.style.background = 'transparent'; // match style
+            // textarea.style.border = '1px solid #ccc'; // minimal border to see it
+
+            textarea.focus();
+
+            function finishCreation() {
+                if (!document.body.contains(textarea)) return;
+
+                const val = textarea.value;
+                if (val && val.trim() !== '') {
+                    createText(pos.x, pos.y, val);
+                }
+                document.body.removeChild(textarea);
+                window.removeEventListener('mousedown', handleOutside);
+            }
+
+            function handleOutside(e) {
+                if (e.target !== textarea) {
+                    finishCreation();
+                }
+            }
+
+            // Wait a tick so the current click doesn't trigger handleOutside
+            setTimeout(() => {
+                window.addEventListener('mousedown', handleOutside);
+            });
+
+            textarea.addEventListener('keydown', function (e) {
+                // Enter allows new line
+                if (e.key === 'Escape') {
+                    document.body.removeChild(textarea);
+                    window.removeEventListener('mousedown', handleOutside);
+                }
+            });
         }
     }
 
@@ -1134,19 +1616,20 @@ stage.on('tap click', (e) => {
         let targetId = clickedShape.id();
         let targetGroup = clickedShape.getParent();
 
+
+
         // If clicked child of a group (like text or circle), get group ID
-        if (targetGroup instanceof Konva.Group && targetGroup.id().startsWith('pole-')) {
-            targetId = targetGroup.id();
-            // Important: Update clickedShape to be the Group so highlighting works on the Group logic
-            // However, our highlight logic expects the Group now.
-            // Let's pass the Group to the rest of the logic
-            // Re-assign clickedShape to the Group
-            // But 'clickedShape' is a const from event? No, e.target.
-            // We can't reassign e.target but we can use a variable.
+        if (targetGroup instanceof Konva.Group) {
+            const groupId = targetGroup.id();
+            if (groupId.startsWith('pole-') || groupId.startsWith('switch-')) {
+                targetId = groupId;
+            }
         }
 
         for (let obj of objects) {
-            const shapeId = obj.type === 'pole' ? `pole-${obj.id}` : `transformer-${obj.id}`;
+            const shapeId = obj.type === 'pole' ? `pole-${obj.id}` :
+                obj.type === 'switch' ? `switch-${obj.id}` :
+                    `transformer-${obj.id}`;
             if (targetId === shapeId) {
                 clickedObject = obj;
                 break;
@@ -1161,8 +1644,13 @@ stage.on('tap click', (e) => {
         if (!selectedObject) {
             console.log('Selecting first object');
             selectedObject = clickedObject;
-            if (targetGroup instanceof Konva.Group && targetGroup.id().startsWith('pole-')) {
-                highlightObject(targetGroup);
+            if (targetGroup instanceof Konva.Group) {
+                const groupId = targetGroup.id();
+                if (groupId.startsWith('pole-') || groupId.startsWith('switch-')) {
+                    highlightObject(targetGroup);
+                } else {
+                    highlightObject(clickedShape);
+                }
             } else {
                 highlightObject(clickedShape);
             }
@@ -1212,6 +1700,10 @@ stage.on('tap click', (e) => {
             if (elementId.startsWith('pole-')) {
                 idToDelete = parseInt(elementId.split('-')[1]);
             } else if (elementId.startsWith('transformer-')) {
+                idToDelete = parseInt(elementId.split('-')[1]);
+            } else if (elementId.startsWith('switch-')) {
+                idToDelete = parseInt(elementId.split('-')[1]);
+            } else if (elementId.startsWith('text-')) {
                 idToDelete = parseInt(elementId.split('-')[1]);
             }
 
