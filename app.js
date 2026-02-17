@@ -53,9 +53,157 @@ const stage = new Konva.Stage({
     width: stageWidth,
     height: stageHeight,
     bgcolor: '#e8e8e8',
-    draggable: false, // Prevent stage from being draggable
+    draggable: true, // Enable infinite canvas dragging
     listening: true // Ensure stage listens to events
 });
+
+// ==========================================
+// Zoom & Pan Logic
+// ==========================================
+const scaleBy = 1.1;
+
+function getDistance(p1, p2) {
+    return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+}
+
+function getCenter(p1, p2) {
+    return {
+        x: (p1.x + p2.x) / 2,
+        y: (p1.y + p2.y) / 2,
+    };
+}
+
+let lastCenter = null;
+let lastDist = 0;
+
+// Multi-touch zoom (pinch) handling
+stage.on('touchmove', function (e) {
+    e.evt.preventDefault();
+    var touch1 = e.evt.touches[0];
+    var touch2 = e.evt.touches[1];
+
+    if (touch1 && touch2) {
+        // if the stage was under Konva's drag&drop
+        // we need to stop it, and implement our own pan logic with 2 pointers
+        if (stage.isDragging()) {
+            stage.stopDrag();
+        }
+
+        var p1 = {
+            x: touch1.clientX,
+            y: touch1.clientY,
+        };
+        var p2 = {
+            x: touch2.clientX,
+            y: touch2.clientY,
+        };
+
+        if (!lastCenter) {
+            lastCenter = getCenter(p1, p2);
+            return;
+        }
+        var newCenter = getCenter(p1, p2);
+
+        var dist = getDistance(p1, p2);
+
+        if (!lastDist) {
+            lastDist = dist;
+        }
+
+        // local coordinates of center point
+        var pointTo = {
+            x: (newCenter.x - stage.x()) / stage.scaleX(),
+            y: (newCenter.y - stage.y()) / stage.scaleX(),
+        };
+
+        var scale = stage.scaleX() * (dist / lastDist);
+
+        stage.scale({ x: scale, y: scale });
+
+        // calculate new position of the stage
+        var dx = newCenter.x - lastCenter.x;
+        var dy = newCenter.y - lastCenter.y;
+
+        var newPos = {
+            x: newCenter.x - pointTo.x * scale + dx,
+            y: newCenter.y - pointTo.y * scale + dy,
+        };
+
+        stage.position(newPos);
+
+        lastDist = dist;
+        lastCenter = newCenter;
+    }
+});
+
+stage.on('touchend', function () {
+    lastDist = 0;
+    lastCenter = null;
+});
+
+// Wheel Zoom
+stage.on('wheel', (e) => {
+    e.evt.preventDefault();
+
+    var oldScale = stage.scaleX();
+    var pointer = stage.getPointerPosition();
+
+    var mousePointTo = {
+        x: (pointer.x - stage.x()) / oldScale,
+        y: (pointer.y - stage.y()) / oldScale,
+    };
+
+    var newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
+
+    stage.scale({ x: newScale, y: newScale });
+
+    var newPos = {
+        x: pointer.x - mousePointTo.x * newScale,
+        y: pointer.y - mousePointTo.y * newScale,
+    };
+    stage.position(newPos);
+});
+
+// Zoom Buttons
+document.getElementById('zoomInBtn').addEventListener('click', () => {
+    const oldScale = stage.scaleX();
+    const newScale = oldScale * scaleBy;
+    applyZoom(newScale);
+});
+
+document.getElementById('zoomOutBtn').addEventListener('click', () => {
+    const oldScale = stage.scaleX();
+    const newScale = oldScale / scaleBy;
+    applyZoom(newScale);
+});
+
+document.getElementById('fitViewBtn').addEventListener('click', () => {
+    stage.position({ x: 0, y: 0 });
+    stage.scale({ x: 1, y: 1 });
+});
+
+function applyZoom(newScale) {
+    // Zoom to center of screen
+    const center = {
+        x: stage.width() / 2,
+        y: stage.height() / 2,
+    };
+
+    const oldScale = stage.scaleX();
+
+    const centerPointTo = {
+        x: (center.x - stage.x()) / oldScale,
+        y: (center.y - stage.y()) / oldScale,
+    };
+
+    stage.scale({ x: newScale, y: newScale });
+
+    const newPos = {
+        x: center.x - centerPointTo.x * newScale,
+        y: center.y - centerPointTo.y * newScale,
+    };
+    stage.position(newPos);
+}
 
 // Enable touch scrolling prevention
 stage.container().style.touchAction = 'none';
@@ -68,6 +216,7 @@ layer.draw();
 // ==========================================
 // Toolbar Button Handlers
 // ==========================================
+const panBtn = document.getElementById('panBtn');
 const addPoleBtn = document.getElementById('addPoleBtn');
 const addTransformerBtn = document.getElementById('addTransformerBtn');
 const connectModeBtn = document.getElementById('connectModeBtn');
@@ -78,6 +227,22 @@ const saveBtn = document.getElementById('saveBtn');
 const loadBtn = document.getElementById('loadBtn');
 const newPageBtn = document.getElementById('newPageBtn');
 
+// Pan Button Handler
+panBtn.addEventListener('click', () => {
+    if (currentTool === 'pan') {
+        currentTool = null;
+        panBtn.classList.remove('active');
+    } else {
+        currentTool = 'pan';
+        panBtn.classList.add('active');
+        addPoleBtn.classList.remove('active');
+        addTransformerBtn.classList.remove('active');
+        connectModeBtn.classList.remove('active');
+        deleteBtn.classList.remove('active');
+        clearSelection();
+    }
+});
+
 addPoleBtn.addEventListener('click', () => {
     if (currentTool === 'pole') {
         currentTool = null;
@@ -85,8 +250,10 @@ addPoleBtn.addEventListener('click', () => {
     } else {
         currentTool = 'pole';
         addPoleBtn.classList.add('active');
+        panBtn.classList.remove('active');
         addTransformerBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
+        deleteBtn.classList.remove('active');
         clearSelection();
     }
 });
@@ -98,8 +265,10 @@ addTransformerBtn.addEventListener('click', () => {
     } else {
         currentTool = 'transformer';
         addTransformerBtn.classList.add('active');
+        panBtn.classList.remove('active');
         addPoleBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
+        deleteBtn.classList.remove('active');
         clearSelection();
     }
 });
@@ -113,6 +282,7 @@ connectModeBtn.addEventListener('click', () => {
     } else {
         currentTool = 'connect';
         connectModeBtn.classList.add('active');
+        panBtn.classList.remove('active');
         addPoleBtn.classList.remove('active');
         addTransformerBtn.classList.remove('active');
         deleteBtn.classList.remove('active');
@@ -130,6 +300,7 @@ deleteBtn.addEventListener('click', () => {
     } else {
         currentTool = 'delete';
         deleteBtn.classList.add('active');
+        panBtn.classList.remove('active');
         addPoleBtn.classList.remove('active');
         addTransformerBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
@@ -297,14 +468,14 @@ function loadFromLocalStorage() {
     }
 
     // Create list of survey options
-    let options = surveys.map((survey, index) => 
+    let options = surveys.map((survey, index) =>
         `${index + 1}. ${survey.name} (${survey.date})`
     ).join('\n');
 
     const selectedIndex = prompt(`Select a survey to load:\n\n${options}\n\nEnter number (1-${surveys.length}):`, '1');
-    
+
     if (selectedIndex === null) return; // User canceled
-    
+
     const index = parseInt(selectedIndex) - 1;
     if (isNaN(index) || index < 0 || index >= surveys.length) {
         alert('Invalid selection.');
@@ -315,7 +486,7 @@ function loadFromLocalStorage() {
 
     // Clear canvas
     clearCanvas();
-    
+
     // Reset arrays
     objects = [];
     connections = [];
@@ -371,6 +542,7 @@ function newPage() {
     currentTool = null;
 
     // Deactivate all tool buttons
+    panBtn.classList.remove('active');
     addPoleBtn.classList.remove('active');
     addTransformerBtn.classList.remove('active');
     connectModeBtn.classList.remove('active');
@@ -388,7 +560,7 @@ function newPage() {
 function clearCanvas() {
     // Remove all shapes from canvas
     layer.removeChildren();
-    
+
     // Reset UI state
     clearSelection();
 }
@@ -558,8 +730,8 @@ function unhighlightObject(shape) {
 
 function clearSelection() {
     if (selectedObject) {
-        const shapeId = selectedObject.type === 'pole' 
-            ? `pole-${selectedObject.id}` 
+        const shapeId = selectedObject.type === 'pole'
+            ? `pole-${selectedObject.id}`
             : `transformer-${selectedObject.id}`;
         const shape = layer.findOne('#' + shapeId);
         if (shape) {
@@ -582,9 +754,9 @@ function getObjectCenterFromShape(shape) {
     if (shape instanceof Konva.Circle) {
         return { x: shape.x(), y: shape.y() };
     } else if (shape instanceof Konva.Rect) {
-        return { 
-            x: shape.x() + shape.width() / 2, 
-            y: shape.y() + shape.height() / 2 
+        return {
+            x: shape.x() + shape.width() / 2,
+            y: shape.y() + shape.height() / 2
         };
     }
     return { x: 0, y: 0 };
@@ -593,12 +765,12 @@ function getObjectCenterFromShape(shape) {
 function drawConnection(fromObjId, toObjId) {
     const fromObj = getObjectById(fromObjId);
     const toObj = getObjectById(toObjId);
-    
+
     if (!fromObj || !toObj) return null;
 
     const fromShape = getShapeById(fromObj.id, fromObj.type);
     const toShape = getShapeById(toObj.id, toObj.type);
-    
+
     if (!fromShape || !toShape) return null;
 
     const fromCenter = getObjectCenterFromShape(fromShape);
@@ -641,12 +813,12 @@ function drawConnection(fromObjId, toObjId) {
 function recreateConnection(connData) {
     const fromObj = getObjectById(connData.from);
     const toObj = getObjectById(connData.to);
-    
+
     if (!fromObj || !toObj) return null;
 
     const fromShape = getShapeById(fromObj.id, fromObj.type);
     const toShape = getShapeById(toObj.id, toObj.type);
-    
+
     if (!fromShape || !toShape) return null;
 
     const fromCenter = getObjectCenterFromShape(fromShape);
@@ -687,15 +859,15 @@ function updateConnectionLines(objectId) {
         if (conn.from === objectId || conn.to === objectId) {
             const fromObj = getObjectById(conn.from);
             const toObj = getObjectById(conn.to);
-            
+
             if (fromObj && toObj) {
                 const fromShape = getShapeById(fromObj.id, fromObj.type);
                 const toShape = getShapeById(toObj.id, toObj.type);
-                
+
                 if (fromShape && toShape) {
                     const fromCenter = getObjectCenterFromShape(fromShape);
                     const toCenter = getObjectCenterFromShape(toShape);
-                    
+
                     conn.line.points([fromCenter.x, fromCenter.y, toCenter.x, toCenter.y]);
                 }
             }
@@ -774,13 +946,24 @@ stage.on('tap click', (e) => {
     // If no tool is active, do nothing
     if (!currentTool) return;
 
+    // If pan tool is active, ignore clicks (only drag allowed)
+    if (currentTool === 'pan') return;
+
     // Handle placement modes
     if (currentTool === 'pole' || currentTool === 'transformer') {
         // Ignore clicks on shapes
         if (e.target !== stage) return;
 
         // Get click position
-        const pos = stage.getPointerPosition();
+        const pointer = stage.getPointerPosition();
+
+        // Transform pointer to stage local coordinates
+        // This is crucial for Zoom/Pan to work correctly
+        const transform = stage.getAbsoluteTransform().copy();
+        transform.invert();
+        const pos = transform.point(pointer);
+
+        console.log('Click on stage:', { pointer, stagePos: stage.position(), scale: stage.scaleX(), result: pos });
 
         // Create appropriate object based on active tool
         if (currentTool === 'pole') {

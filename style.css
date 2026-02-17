@@ -37,6 +37,37 @@ body {
     touch-action: none; /* Prevent default touch behaviors like scroll/zoom */
 }
 
+/* Zoom Controls */
+#zoomControls {
+    position: absolute;
+    bottom: 90px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 90;
+}
+
+.zoom-btn {
+    width: 40px;
+    height: 40px;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.zoom-btn:active {
+    background-color: #f0f0f0;
+    transform: scale(0.95);
+}
+
 /* Bottom Fixed Toolbar */
 #toolbar {
     position: fixed;
@@ -167,7 +198,7 @@ body {
     }
 
     .toolbar-btn {
-        flex: 0 1 calc(11% - 4px);
+        flex: 0 1 calc(9% - 4px);
         min-height: 60px;
         height: 60px;
     }

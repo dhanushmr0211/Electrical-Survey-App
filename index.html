@@ -18,8 +18,16 @@
     <!-- Container for Konva stage -->
     <div id="container"></div>
 
+    <!-- Zoom Controls -->
+    <div id="zoomControls">
+        <button id="zoomInBtn" class="zoom-btn" title="Zoom In">+</button>
+        <button id="zoomOutBtn" class="zoom-btn" title="Zoom Out">-</button>
+        <button id="fitViewBtn" class="zoom-btn" title="Fit to View">⛶</button>
+    </div>
+
     <!-- Toolbar (Bottom Fixed) -->
     <div id="toolbar">
+        <button id="panBtn" class="toolbar-btn" title="Pan Tool"><span class="btn-icon">✋</span><span class="btn-label">Pan</span></button>
         <button id="addPoleBtn" class="toolbar-btn" title="Add Pole"><span class="btn-icon">⬤</span><span class="btn-label">Pole</span></button>
         <button id="addTransformerBtn" class="toolbar-btn" title="Add Transformer"><span class="btn-icon">▭</span><span class="btn-label">Transformer</span></button>
         <button id="connectModeBtn" class="toolbar-btn" title="Connect"><span class="btn-icon">⟿</span><span class="btn-label">Connect</span></button>
