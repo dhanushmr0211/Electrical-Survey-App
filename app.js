@@ -28,6 +28,7 @@ const CONNECTION_LINE_COLOR = '#000000';
 
 let objects = [];
 let objectIdCounter = 0;
+let poleCounter = null; // Global pole counter
 let currentTool = null;
 let connections = [];
 let connectionIdCounter = 0;
@@ -408,6 +409,20 @@ function loadState(state) {
     connectionIdCounter = state.connectionIdCounter;
     connections = []; // Start fresh
     selectedObject = null;
+    poleCounter = null; // Reset pole counter
+
+    // Find max pole number to initialize counter
+    let maxPoleNum = 0;
+    stateObjects.forEach(obj => {
+        if (obj.type === 'pole' && obj.poleNumber) {
+            if (obj.poleNumber > maxPoleNum) {
+                maxPoleNum = obj.poleNumber;
+            }
+        }
+    });
+    if (maxPoleNum > 0) {
+        poleCounter = maxPoleNum + 1;
+    }
 
     // Recreate all objects on canvas
     stateObjects.forEach(obj => {
@@ -531,6 +546,17 @@ function loadFromLocalStorage() {
 
     // Update counters based on survey data
     objectIdCounter = Math.max(...survey.objects.map(o => o.id), -1) + 1;
+
+    // Initialize pole counter from loaded data
+    poleCounter = null;
+    let maxPoleNum = 0;
+    survey.objects.forEach(obj => {
+        if (obj.type === 'pole' && obj.poleNumber) {
+            if (obj.poleNumber > maxPoleNum) maxPoleNum = obj.poleNumber;
+        }
+    });
+    if (maxPoleNum > 0) poleCounter = maxPoleNum + 1;
+
     let maxConnId = -1;
     survey.connections.forEach(conn => {
         if (conn.id > maxConnId) maxConnId = conn.id;
@@ -573,6 +599,7 @@ function newPage() {
     // Reset arrays and counters
     objects = [];
     objectIdCounter = 0;
+    poleCounter = null; // Reset pole counter
     connections = [];
     connectionIdCounter = 0;
     selectedObject = null;
@@ -606,39 +633,73 @@ function clearCanvas() {
 // ==========================================
 // Create Pole Function
 // ==========================================
+// ==========================================
+// Create Pole Function
+// ==========================================
 function createPole(x, y) {
+    // Initialize pole counter if first pole
+    if (poleCounter === null) {
+        const input = prompt("Enter starting pole number:", "1");
+        if (input === null) return; // Cancelled
+        poleCounter = parseInt(input);
+        if (isNaN(poleCounter)) poleCounter = 1;
+    }
+
+    const currentPoleNum = poleCounter++;
+
     // Create pole object
     const pole = {
         id: objectIdCounter++,
         x: x,
         y: y,
-        type: 'pole'
+        type: 'pole',
+        poleNumber: currentPoleNum
     };
 
     // Add to objects array
     objects.push(pole);
 
-    // Create Konva circle
-    const circle = new Konva.Circle({
+    // Create Group
+    const group = new Konva.Group({
         x: x,
         y: y,
-        radius: POLE_RADIUS,
-        fill: POLE_COLOR,
         draggable: true,
-        id: `pole-${pole.id}`,
-        listening: true,
-        hitStrokeWidth: 20 // Larger touch target area
+        id: `pole-${pole.id}`
     });
 
+    // Create Konva circle
+    const circle = new Konva.Circle({
+        x: 0,
+        y: 0,
+        radius: POLE_RADIUS,
+        fill: POLE_COLOR,
+        listening: true, // receive events
+        hitStrokeWidth: 20
+    });
+
+    // Create Text for Pole Number
+    const text = new Konva.Text({
+        x: 12,
+        y: -10,
+        text: currentPoleNum.toString(),
+        fontSize: 14,
+        fontFamily: 'Arial',
+        fill: 'black',
+        fontStyle: 'bold'
+    });
+
+    group.add(circle);
+    group.add(text);
+
     // Update pole coordinates on drag
-    circle.on('dragmove', () => {
-        pole.x = circle.x();
-        pole.y = circle.y();
+    group.on('dragmove', () => {
+        pole.x = group.x();
+        pole.y = group.y();
         updateConnectionLines(pole.id);
     });
 
-    // Add circle to layer
-    layer.add(circle);
+    // Add group to layer
+    layer.add(group);
     layer.draw();
 
     saveHistory();
@@ -648,33 +709,56 @@ function createPole(x, y) {
 // ==========================================
 // Recreate Pole Function (for undo/redo)
 // ==========================================
+// ==========================================
+// Recreate Pole Function (for undo/redo)
+// ==========================================
 function recreatePole(poleData) {
     // Add to objects array
     objects.push(poleData);
 
-    // Create Konva circle
-    const circle = new Konva.Circle({
+    // Create Group
+    const group = new Konva.Group({
         x: poleData.x,
         y: poleData.y,
-        radius: POLE_RADIUS,
-        fill: POLE_COLOR,
         draggable: true,
-        id: `pole-${poleData.id}`,
-        listening: true,
-        hitStrokeWidth: 20 // Larger touch target area
+        id: `pole-${poleData.id}`
     });
 
+    // Create Konva circle
+    const circle = new Konva.Circle({
+        x: 0,
+        y: 0,
+        radius: POLE_RADIUS,
+        fill: POLE_COLOR,
+        listening: true,
+        hitStrokeWidth: 20
+    });
+
+    // Create Text for Pole Number
+    const text = new Konva.Text({
+        x: 12,
+        y: -10,
+        text: (poleData.poleNumber || "").toString(),
+        fontSize: 14,
+        fontFamily: 'Arial',
+        fill: 'black',
+        fontStyle: 'bold'
+    });
+
+    group.add(circle);
+    group.add(text);
+
     // Update pole coordinates on drag
-    circle.on('dragmove', () => {
-        poleData.x = circle.x();
-        poleData.y = circle.y();
+    group.on('dragmove', () => {
+        poleData.x = group.x();
+        poleData.y = group.y();
         updateConnectionLines(poleData.id);
     });
 
-    // Add circle to layer
-    layer.add(circle);
+    // Add group to layer
+    layer.add(group);
 
-    return circle;
+    return group;
 }
 
 // ==========================================
@@ -755,14 +839,31 @@ function recreateTransformer(transformerData) {
 // Helper Functions for Connect Mode
 // ==========================================
 function highlightObject(shape) {
-    shape.stroke(HIGHLIGHT_STROKE);
-    shape.strokeWidth(HIGHLIGHT_STROKE_WIDTH);
+    // If shape is a Group (Pole), find the circle inside
+    if (shape instanceof Konva.Group) {
+        const circle = shape.findOne('Circle');
+        if (circle) {
+            circle.stroke(HIGHLIGHT_STROKE);
+            circle.strokeWidth(HIGHLIGHT_STROKE_WIDTH);
+        }
+    } else {
+        shape.stroke(HIGHLIGHT_STROKE);
+        shape.strokeWidth(HIGHLIGHT_STROKE_WIDTH);
+    }
     layer.draw();
 }
 
 function unhighlightObject(shape) {
-    shape.stroke(null);
-    shape.strokeWidth(0);
+    if (shape instanceof Konva.Group) {
+        const circle = shape.findOne('Circle');
+        if (circle) {
+            circle.stroke(null);
+            circle.strokeWidth(0);
+        }
+    } else {
+        shape.stroke(null);
+        shape.strokeWidth(0);
+    }
     layer.draw();
 }
 
@@ -789,6 +890,9 @@ function getShapeById(id, type) {
 }
 
 function getObjectCenterFromShape(shape) {
+    if (shape instanceof Konva.Group) { // Pole Group
+        return { x: shape.x(), y: shape.y() };
+    }
     if (shape instanceof Konva.Circle) {
         return { x: shape.x(), y: shape.y() };
     } else if (shape instanceof Konva.Rect) {
@@ -1024,9 +1128,26 @@ stage.on('tap click', (e) => {
         let clickedObject = null;
 
         // Determine which object was clicked
+        // Note: For groups, e.target is the child (Circle/Text). 
+        // We must check the parent group's ID or the target's ID if not grouped.
+
+        let targetId = clickedShape.id();
+        let targetGroup = clickedShape.getParent();
+
+        // If clicked child of a group (like text or circle), get group ID
+        if (targetGroup instanceof Konva.Group && targetGroup.id().startsWith('pole-')) {
+            targetId = targetGroup.id();
+            // Important: Update clickedShape to be the Group so highlighting works on the Group logic
+            // However, our highlight logic expects the Group now.
+            // Let's pass the Group to the rest of the logic
+            // Re-assign clickedShape to the Group
+            // But 'clickedShape' is a const from event? No, e.target.
+            // We can't reassign e.target but we can use a variable.
+        }
+
         for (let obj of objects) {
             const shapeId = obj.type === 'pole' ? `pole-${obj.id}` : `transformer-${obj.id}`;
-            if (clickedShape.id() === shapeId) {
+            if (targetId === shapeId) {
                 clickedObject = obj;
                 break;
             }
@@ -1040,7 +1161,11 @@ stage.on('tap click', (e) => {
         if (!selectedObject) {
             console.log('Selecting first object');
             selectedObject = clickedObject;
-            highlightObject(clickedShape);
+            if (targetGroup instanceof Konva.Group && targetGroup.id().startsWith('pole-')) {
+                highlightObject(targetGroup);
+            } else {
+                highlightObject(clickedShape);
+            }
         } else if (selectedObject.id === clickedObject.id) {
             // If clicking same object, deselect it
             console.log('Deselecting object');
@@ -1063,7 +1188,14 @@ stage.on('tap click', (e) => {
         }
 
         const clickedElement = e.target;
-        const elementId = clickedElement.id();
+        let elementId = clickedElement.id();
+
+        // Handle Pole Groups
+        const parentGroup = clickedElement.getParent();
+        if (parentGroup instanceof Konva.Group && parentGroup.id().startsWith('pole-')) {
+            elementId = parentGroup.id();
+        }
+
         console.log('Clicked element ID:', elementId);
 
         // Check if clicking a connection line
