@@ -399,17 +399,18 @@ function saveHistory() {
 
 function loadState(state) {
     // Clean up current state
-    layer.removeChildren();
+    layer.destroyChildren(); // Completely clear layer
 
     // Reset arrays
-    objects = JSON.parse(JSON.stringify(state.objects));
+    const stateObjects = JSON.parse(JSON.stringify(state.objects));
+    objects = []; // Start fresh
     objectIdCounter = state.objectIdCounter;
     connectionIdCounter = state.connectionIdCounter;
-    connections = [];
+    connections = []; // Start fresh
     selectedObject = null;
 
     // Recreate all objects on canvas
-    objects.forEach(obj => {
+    stateObjects.forEach(obj => {
         if (obj.type === 'pole') {
             recreatePole(obj);
         } else if (obj.type === 'transformer') {
@@ -595,10 +596,11 @@ function newPage() {
 
 function clearCanvas() {
     // Remove all shapes from canvas
-    layer.removeChildren();
+    layer.destroyChildren();
 
     // Reset UI state
     clearSelection();
+    layer.draw();
 }
 
 // ==========================================
@@ -1072,13 +1074,18 @@ stage.on('tap click', (e) => {
             deleteConnection(connectionId);
         } else {
             // It's an object (pole or transformer) - delete it
-            for (let obj of objects) {
-                const shapeId = obj.type === 'pole' ? `pole-${obj.id}` : `transformer-${obj.id}`;
-                if (elementId === shapeId) {
-                    console.log('Deleting object:', obj.id);
-                    deleteObject(obj.id);
-                    break;
-                }
+            // Use getObjectById logic or simply check prefix
+            let idToDelete = null;
+
+            if (elementId.startsWith('pole-')) {
+                idToDelete = parseInt(elementId.split('-')[1]);
+            } else if (elementId.startsWith('transformer-')) {
+                idToDelete = parseInt(elementId.split('-')[1]);
+            }
+
+            if (idToDelete !== null && !isNaN(idToDelete)) {
+                console.log('Deleting object:', idToDelete);
+                deleteObject(idToDelete);
             }
         }
     }
