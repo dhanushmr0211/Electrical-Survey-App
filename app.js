@@ -65,8 +65,8 @@ const stage = new Konva.Stage({
 // Zoom & Pan Logic
 // ==========================================
 const scaleBy = 1.1;
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 4.0;
+const MIN_ZOOM = 0.3;
+const MAX_ZOOM = 5.0;
 const INITIAL_SCALE = 1;
 
 function getDistance(p1, p2) {
@@ -84,12 +84,14 @@ let lastCenter = null;
 let lastDist = 0;
 
 // Multi-touch zoom (pinch) handling
+// Multi-touch zoom (pinch) handling
 stage.on('touchmove', function (e) {
-    e.evt.preventDefault();
     var touch1 = e.evt.touches[0];
     var touch2 = e.evt.touches[1];
 
     if (touch1 && touch2) {
+        e.evt.preventDefault(); // Prevent browser zoom only when pinching
+
         // if the stage was under Konva's drag&drop
         // we need to stop it, and implement our own pan logic with 2 pointers
         if (stage.isDragging()) {
@@ -118,32 +120,41 @@ stage.on('touchmove', function (e) {
         }
 
         // local coordinates of center point
+        // Calculate pointTo based on old scale/pos
         var pointTo = {
             x: (newCenter.x - stage.x()) / stage.scaleX(),
             y: (newCenter.y - stage.y()) / stage.scaleX(),
         };
 
-        var newScale = stage.scaleX() * (dist / lastDist);
+        var scale = stage.scaleX() * (dist / lastDist);
 
         // Clamp scale
-        newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
+        // Smooth clamping: if outside bounds, apply resistance or hard clamp? 
+        // Hard clamp for stability.
+        scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, scale));
 
-        stage.scale({ x: newScale, y: newScale });
+        stage.scale({ x: scale, y: scale });
 
         // calculate new position of the stage
         var dx = newCenter.x - lastCenter.x;
         var dy = newCenter.y - lastCenter.y;
 
         var newPos = {
-            x: newCenter.x - pointTo.x * newScale + dx,
-            y: newCenter.y - pointTo.y * newScale + dy,
+            x: newCenter.x - pointTo.x * scale + dx,
+            y: newCenter.y - pointTo.y * scale + dy,
         };
 
         stage.position(newPos);
 
+        // Update last values for next frame
         lastDist = dist;
         lastCenter = newCenter;
     }
+});
+
+stage.on('touchend', function () {
+    lastDist = 0;
+    lastCenter = null;
 });
 
 stage.on('touchend', function () {
@@ -554,23 +565,131 @@ function loadFromLocalStorage() {
         return;
     }
 
-    // Create list of survey options
-    let options = surveys.map((survey, index) =>
-        `${index + 1}. ${survey.name} (${survey.date})`
-    ).join('\n');
+    // Create a custom modal for loading/deleting
+    showLoadDialog(surveys);
+}
 
-    const selectedIndex = prompt(`Select a survey to load:\n\n${options}\n\nEnter number (1-${surveys.length}):`, '1');
+function showLoadDialog(surveys) {
+    // Remove existing dialog if any
+    const existing = document.getElementById('loadDialog');
+    if (existing) document.body.removeChild(existing);
 
-    if (selectedIndex === null) return; // User canceled
+    const dialog = document.createElement('div');
+    dialog.id = 'loadDialog';
+    dialog.style.position = 'fixed';
+    dialog.style.top = '50%';
+    dialog.style.left = '50%';
+    dialog.style.transform = 'translate(-50%, -50%)';
+    dialog.style.backgroundColor = 'white';
+    dialog.style.padding = '20px';
+    dialog.style.borderRadius = '8px';
+    dialog.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+    dialog.style.zIndex = '2000';
+    dialog.style.maxHeight = '80vh';
+    dialog.style.overflowY = 'auto';
+    dialog.style.width = '300px';
+    dialog.style.fontFamily = 'Arial, sans-serif';
 
-    const index = parseInt(selectedIndex) - 1;
-    if (isNaN(index) || index < 0 || index >= surveys.length) {
-        alert('Invalid selection.');
-        return;
+    const title = document.createElement('h3');
+    title.textContent = 'Saved Surveys';
+    title.style.marginTop = '0';
+    title.style.borderBottom = '1px solid #eee';
+    title.style.paddingBottom = '10px';
+    dialog.appendChild(title);
+
+    const list = document.createElement('div');
+    surveys.forEach((survey, index) => {
+        const item = document.createElement('div');
+        item.style.display = 'flex';
+        item.style.justifyContent = 'space-between';
+        item.style.alignItems = 'center';
+        item.style.padding = '10px 0';
+        item.style.borderBottom = '1px solid #f0f0f0';
+
+        const info = document.createElement('div');
+        info.innerHTML = `<strong>${survey.name}</strong><br><span style="font-size:12px;color:#666">${survey.date}</span>`;
+
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.gap = '5px';
+
+        const loadBtn = document.createElement('button');
+        loadBtn.textContent = 'Load';
+        loadBtn.style.padding = '5px 10px';
+        loadBtn.style.cursor = 'pointer';
+        loadBtn.style.backgroundColor = '#4CAF50'; // Green
+        loadBtn.style.color = 'white';
+        loadBtn.style.border = 'none';
+        loadBtn.style.borderRadius = '3px';
+        loadBtn.onclick = () => {
+            loadSurvey(survey);
+            document.body.removeChild(dialog);
+        };
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.innerHTML = '✕'; // Cross icon
+        deleteBtn.title = "Delete Survey";
+        deleteBtn.style.padding = '5px 10px';
+        deleteBtn.style.cursor = 'pointer';
+        deleteBtn.style.backgroundColor = '#f44336'; // Red
+        deleteBtn.style.color = 'white';
+        deleteBtn.style.border = 'none';
+        deleteBtn.style.borderRadius = '3px';
+        deleteBtn.onclick = () => {
+            if (confirm(`Are you sure you want to delete "${survey.name}"?`)) {
+                deleteSurvey(survey.id);
+                document.body.removeChild(dialog);
+                // Reload dialog to show updated list
+                setTimeout(loadFromLocalStorage, 100);
+            }
+        };
+
+        actions.appendChild(loadBtn);
+        actions.appendChild(deleteBtn);
+
+        item.appendChild(info);
+        item.appendChild(actions);
+        list.appendChild(item);
+    });
+
+    if (surveys.length === 0) {
+        list.innerHTML = '<p style="text-align:center;color:#666">No saved surveys.</p>';
     }
 
-    const survey = surveys[index];
+    dialog.appendChild(list);
 
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.marginTop = '15px';
+    closeBtn.style.padding = '8px 15px';
+    closeBtn.style.width = '100%';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.backgroundColor = '#ddd';
+    closeBtn.style.border = 'none';
+    closeBtn.style.borderRadius = '3px';
+    closeBtn.onclick = () => document.body.removeChild(dialog);
+    dialog.appendChild(closeBtn);
+
+    document.body.appendChild(dialog);
+}
+
+function deleteSurvey(id) {
+    let surveys = [];
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+        surveys = JSON.parse(stored);
+    }
+
+    const initialLength = surveys.length;
+    surveys = surveys.filter(s => s.id !== id);
+
+    if (surveys.length < initialLength) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(surveys));
+        // alert('Survey deleted.'); // feedback optional, UI refresh handles it
+    }
+}
+
+function loadSurvey(survey) {
     // Clear canvas
     clearCanvas();
 
