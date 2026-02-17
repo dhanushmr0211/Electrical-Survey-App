@@ -58,7 +58,7 @@ function showUpdateNotification(registration) {
     overlay.style.left = '0';
     overlay.style.width = '100vw';
     overlay.style.height = '100vh';
-    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.85)'; // Darker backdrop
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.95)'; // Almost fully black backdrop
     overlay.style.zIndex = '20000'; // Highest z-index to block everything
     overlay.style.display = 'flex';
     overlay.style.flexDirection = 'column';
@@ -75,7 +75,7 @@ function showUpdateNotification(registration) {
     toast.style.boxShadow = '0 10px 30px rgba(0,0,0,0.6)';
     toast.style.textAlign = 'center';
     toast.style.maxWidth = '90%';
-    toast.style.width = '320px';
+    toast.style.width = '360px'; // Slightly wider "board"
     toast.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
     // Icon (optional but nice)
