@@ -722,7 +722,7 @@ function exportFile() {
     const surveyData = {
         meta: {
             app: 'Electrical Survey App',
-            version: '1.0',
+            version: '1.1',
             exportedAt: new Date().toISOString()
         },
         survey: {
