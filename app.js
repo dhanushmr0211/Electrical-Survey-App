@@ -368,7 +368,6 @@ const connectModeBtn = document.getElementById('connectModeBtn');
 const deleteBtn = document.getElementById('deleteBtn');
 const undoBtn = document.getElementById('undoBtn');
 
-const renameBtn = document.getElementById('renameBtn');
 const loadBtn = document.getElementById('loadBtn');
 
 const exportBtn = document.getElementById('exportBtn');
@@ -497,9 +496,7 @@ redoBtn.addEventListener('click', () => {
     redo();
 });
 
-renameBtn.addEventListener('click', () => {
-    renameFile();
-});
+
 
 loadBtn.addEventListener('click', () => {
     loadFromLocalStorage();
@@ -741,28 +738,57 @@ function exportFile() {
         }
     };
 
+    // Prepare export
     const json = JSON.stringify(surveyData, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const fileName = `${currentFileName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.esurvey`;
 
-    // Try Web Share API (Mobile)
-    if (navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: 'application/json' })] })) {
-        navigator.share({
-            files: [new File([blob], fileName, { type: 'application/json' })],
-            title: 'Shared Survey',
-            text: `Sharing survey: ${currentFileName}`
-        }).catch(console.error);
-    } else {
-        // Fallback to download
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    let shareFailed = false;
+    try {
+        if (navigator.share && navigator.canShare) {
+            const file = new File([blob], fileName, { type: 'application/json' });
+            const shareData = {
+                files: [file],
+                title: 'Shared Survey',
+                text: `Sharing survey: ${currentFileName}`
+            };
+
+            if (navigator.canShare(shareData)) {
+                navigator.share(shareData).catch(err => {
+                    console.error('Share failed/cancelled:', err);
+                    // Only fallback if it wasn't a user cancellation? 
+                    // Actually, if user cancels share sheet, we probably shouldn't force download.
+                    // But "not working" might mean share sheet didn't open.
+                    // Let's just log it. If it was a real error, user might want download.
+                    if (err.name !== 'AbortError') {
+                        downloadFile(blob, fileName);
+                    }
+                });
+            } else {
+                shareFailed = true;
+            }
+        } else {
+            shareFailed = true;
+        }
+    } catch (e) {
+        console.warn('Share API error:', e);
+        shareFailed = true;
     }
+
+    if (shareFailed) {
+        downloadFile(blob, fileName);
+    }
+}
+
+function downloadFile(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 function importFile(event) {
@@ -1144,6 +1170,10 @@ function loadSurvey(survey) {
             recreatePole(obj);
         } else if (obj.type === 'transformer') {
             recreateTransformer(obj);
+        } else if (obj.type === 'switch') {
+            recreateSwitch(obj);
+        } else if (obj.type === 'text') {
+            recreateText(obj);
         }
     });
 

@@ -44,7 +44,7 @@ body {
 /* Zoom Controls */
 #zoomControls {
     position: absolute;
-    bottom: 90px;
+    bottom: 120px;
     right: 20px;
     display: flex;
     flex-direction: column;
@@ -185,7 +185,7 @@ body {
     }
 
     #zoomControls {
-        bottom: 130px;
+        bottom: 150px;
         /* Position above the taller toolbar */
         right: 10px;
     }
