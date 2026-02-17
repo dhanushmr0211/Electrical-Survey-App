@@ -133,6 +133,10 @@ let selectedObject = null;
 let history = [];
 let historyStep = -1;
 
+// Auto-Save State
+let currentFileId = null;
+let currentFileName = null;
+
 // ==========================================
 // Initialize Konva Stage
 // ==========================================
@@ -363,8 +367,8 @@ const textModeBtn = document.getElementById('textModeBtn');
 const connectModeBtn = document.getElementById('connectModeBtn');
 const deleteBtn = document.getElementById('deleteBtn');
 const undoBtn = document.getElementById('undoBtn');
-const redoBtn = document.getElementById('redoBtn');
-const saveBtn = document.getElementById('saveBtn');
+
+const renameBtn = document.getElementById('renameBtn');
 const loadBtn = document.getElementById('loadBtn');
 const newPageBtn = document.getElementById('newPageBtn');
 
@@ -488,8 +492,8 @@ redoBtn.addEventListener('click', () => {
     redo();
 });
 
-saveBtn.addEventListener('click', () => {
-    saveToLocalStorage();
+renameBtn.addEventListener('click', () => {
+    renameFile();
 });
 
 loadBtn.addEventListener('click', () => {
@@ -497,7 +501,7 @@ loadBtn.addEventListener('click', () => {
 });
 
 newPageBtn.addEventListener('click', () => {
-    newPage();
+    createNewFile(); // Renamed to createNewFile
 });
 
 // Initialize button states
@@ -530,7 +534,11 @@ function saveHistory() {
 
     // Update button states
     updateHistoryButtons();
+
+    // Trigger Auto-Save
+    autoSave();
 }
+
 
 function loadState(state) {
     // Clean up current state
@@ -603,29 +611,26 @@ function updateHistoryButtons() {
 }
 
 // ==========================================
-// LocalStorage Functions for Save/Load
+// LocalStorage Functions for Auto-Save
 // ==========================================
 const STORAGE_KEY = 'electrical_surveys';
 
-function saveToLocalStorage() {
-    // Prompt user for survey name
-    const surveyName = prompt('Enter survey name:');
-    if (!surveyName || surveyName.trim() === '') {
-        alert('Survey name cannot be empty.');
-        return;
-    }
+function autoSave() {
+    if (!currentFileId) return; // Don't save if no file is open (shouldn't happen ideally if we force new page)
 
-    // Get current surveys from localStorage
+    // Get current surveys
     let surveys = [];
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
         surveys = JSON.parse(stored);
     }
 
-    // Create new survey object
-    const survey = {
-        id: Date.now(),
-        name: surveyName.trim(),
+    // Find current survey
+    const index = surveys.findIndex(s => s.id === currentFileId);
+
+    const currentState = {
+        id: currentFileId,
+        name: currentFileName,
         date: new Date().toLocaleString(),
         objects: JSON.parse(JSON.stringify(objects)),
         connections: connections.map(conn => ({
@@ -635,12 +640,87 @@ function saveToLocalStorage() {
         }))
     };
 
-    // Add survey to list
-    surveys.push(survey);
+    if (index !== -1) {
+        // Update existing
+        surveys[index] = currentState;
+    } else {
+        // Create new (should have been created by newPage, but safety check)
+        surveys.push(currentState);
+    }
 
-    // Save to localStorage
     localStorage.setItem(STORAGE_KEY, JSON.stringify(surveys));
-    alert(`Survey "${surveyName}" saved successfully!`);
+    console.log(`Auto-saved survey: ${currentFileName}`);
+}
+
+function renameFile() {
+    if (!currentFileId) {
+        alert('No file selected. Please create or load a file first.');
+        return;
+    }
+
+    const newName = prompt('Enter new name for file:', currentFileName);
+    if (newName === null) return; // Canceled
+
+    const trimmedName = newName.trim();
+    if (trimmedName === '') {
+        alert('File name cannot be empty.');
+        return;
+    }
+
+    // Update global state
+    currentFileName = trimmedName;
+
+    // Update localStorage
+    let surveys = [];
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+        surveys = JSON.parse(stored);
+    }
+
+    // Find and update survey
+    const index = surveys.findIndex(s => s.id === currentFileId);
+    if (index !== -1) {
+        surveys[index].name = currentFileName;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(surveys));
+        alert(`File renamed to "${currentFileName}" successfully.`);
+    } else {
+        // If getting here, something is desynced, but let's just save as new entry or warn
+        // Ideally autoSave will handle it
+        autoSave();
+        alert(`File renamed to "${currentFileName}" (re-saved).`);
+    }
+}
+
+// Replaces saveToLocalStorage
+function createNewFile() {
+    const surveyName = prompt('Enter new survey name:');
+    if (!surveyName || surveyName.trim() === '') {
+        alert('Survey name cannot be empty.');
+        return;
+    }
+
+    // Clear canvas and state
+    clearCanvas();
+    objects = [];
+    connections = [];
+    selectedObject = null;
+    objectIdCounter = 0;
+    poleCounter = null;
+    connectionIdCounter = 0;
+
+    // Initialize history
+    history = [];
+    historyStep = -1;
+    updateHistoryButtons();
+
+    // Set globals
+    currentFileId = Date.now();
+    currentFileName = surveyName.trim();
+
+    // Initial Save
+    autoSave();
+
+    alert(`Started new survey: "${currentFileName}"`);
 }
 
 function loadFromLocalStorage() {
@@ -833,40 +913,14 @@ function loadSurvey(survey) {
 
     alert(`Survey "${survey.name}" loaded successfully!`);
     currentTool = null;
+
+    // Set current file context
+    currentFileId = survey.id;
+    currentFileName = survey.name;
 }
 
-function newPage() {
-    if (!confirm('Clear all objects and start a new survey?')) {
-        return;
-    }
+// newPage function replaced by createNewFile above
 
-    clearCanvas();
-
-    // Reset arrays and counters
-    objects = [];
-    objectIdCounter = 0;
-    poleCounter = null; // Reset pole counter
-    connections = [];
-    connectionIdCounter = 0;
-    selectedObject = null;
-    currentTool = null;
-
-    // Deactivate all tool buttons
-    panBtn.classList.remove('active');
-    addPoleBtn.classList.remove('active');
-    addTransformerBtn.classList.remove('active');
-    textModeBtn.classList.remove('active');
-    connectModeBtn.classList.remove('active');
-    deleteBtn.classList.remove('active');
-
-    // Reset history
-    history = [];
-    historyStep = -1;
-    saveHistory();
-    updateHistoryButtons();
-
-    layer.draw();
-}
 
 function clearCanvas() {
     // Remove all shapes from canvas
