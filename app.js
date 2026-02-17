@@ -795,9 +795,11 @@ function importFile(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.esurvey')) {
-        alert('Invalid file format. Please upload a .esurvey file.');
-        return;
+    // Relaxed extension check for mobile compatibility
+    if (!file.name.endsWith('.esurvey') && !file.name.endsWith('.json')) {
+        if (!confirm(`The file "${file.name}" does not have a .esurvey or .json extension. Try to load it anyway?`)) {
+            return;
+        }
     }
 
     const reader = new FileReader();
