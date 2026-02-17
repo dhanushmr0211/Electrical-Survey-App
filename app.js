@@ -11,6 +11,12 @@ if ('serviceWorker' in navigator) {
                 console.log('Service Worker registration failed:', error);
             });
     });
+
+    // Automatically reload the page when a new service worker takes control
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        console.log('New Service Worker activated. Reloading page...');
+        window.location.reload();
+    });
 }
 
 // ==========================================
