@@ -22,7 +22,14 @@ self.addEventListener('install', (event) => {
       });
     })
   );
-  self.skipWaiting();
+  // Do NOT skipWaiting automatically. Wait for user to click "Refresh".
+});
+
+// Listen for message to skip waiting
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Activate event: Clean up old caches

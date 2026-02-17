@@ -2,21 +2,107 @@
 // Service Worker Registration (PWA)
 // ==========================================
 if ('serviceWorker' in navigator) {
+    let newWorker;
+
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./service-worker.js')
             .then((registration) => {
-                console.log('Service Worker registered successfully:', registration);
+                console.log('Service Worker registered:', registration);
+
+                // Check if there's a waiting worker (update ready)
+                if (registration.waiting) {
+                    showUpdateNotification();
+                    return;
+                }
+
+                // Track updates
+                registration.addEventListener('updatefound', () => {
+                    newWorker = registration.installing;
+
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // New update available
+                            showUpdateNotification();
+                        }
+                    });
+                });
             })
             .catch((error) => {
                 console.log('Service Worker registration failed:', error);
             });
     });
 
-    // Automatically reload the page when a new service worker takes control
+    // Reload when the new service worker takes control
+    let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('New Service Worker activated. Reloading page...');
+        if (refreshing) return;
+        refreshing = true;
         window.location.reload();
     });
+}
+
+function showUpdateNotification() {
+    // Check if notification already exists
+    if (document.getElementById('update-toast')) return;
+
+    const toast = document.createElement('div');
+    toast.id = 'update-toast';
+    toast.style.position = 'fixed';
+    toast.style.bottom = '80px'; // Above toolbar
+    toast.style.left = '50%';
+    toast.style.transform = 'translateX(-50%)';
+    toast.style.backgroundColor = '#333';
+    toast.style.color = 'white';
+    toast.style.padding = '12px 20px';
+    toast.style.borderRadius = '50px';
+    toast.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
+    toast.style.display = 'flex';
+    toast.style.alignItems = 'center';
+    toast.style.gap = '15px';
+    toast.style.zIndex = '10000';
+    toast.style.fontFamily = 'Arial, sans-serif';
+    toast.style.fontSize = '14px';
+
+    const text = document.createElement('span');
+    text.textContent = 'New version available!';
+
+    const refreshBtn = document.createElement('button');
+    refreshBtn.textContent = 'Refresh';
+    refreshBtn.style.backgroundColor = '#4CAF50';
+    refreshBtn.style.color = 'white';
+    refreshBtn.style.border = 'none';
+    refreshBtn.style.padding = '5px 12px';
+    refreshBtn.style.borderRadius = '20px';
+    refreshBtn.style.cursor = 'pointer';
+    refreshBtn.style.fontWeight = 'bold';
+
+    refreshBtn.onclick = () => {
+        // Skip waiting creates a new controller, triggering controllerchange -> reload
+        // But we need to tell the waiting worker to skip waiting.
+        // We can't access registration easily here unless global or re-fetch.
+        navigator.serviceWorker.getRegistration().then(reg => {
+            if (reg && reg.waiting) {
+                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            } else {
+                window.location.reload();
+            }
+        });
+    };
+
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.fontSize = '18px';
+    closeBtn.style.marginLeft = '5px';
+    closeBtn.onclick = () => {
+        document.body.removeChild(toast);
+    };
+
+    toast.appendChild(text);
+    toast.appendChild(refreshBtn);
+    toast.appendChild(closeBtn);
+
+    document.body.appendChild(toast);
 }
 
 // ==========================================
