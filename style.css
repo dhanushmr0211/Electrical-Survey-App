@@ -4,11 +4,13 @@
     box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
     width: 100%;
     height: 100%;
     height: 100vh;
-    height: 100dvh; /* Mobile browser height */
+    height: 100dvh;
+    /* Mobile browser height */
     background-color: #1a1a1a;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
     overflow: hidden;
@@ -33,8 +35,10 @@ body {
     position: relative;
     background-color: #e8e8e8;
     overflow: hidden;
-    margin-bottom: 70px; /* Space for toolbar */
-    touch-action: none; /* Prevent default touch behaviors like scroll/zoom */
+    margin-bottom: 70px;
+    /* Space for toolbar */
+    touch-action: none;
+    /* Prevent default touch behaviors like scroll/zoom */
 }
 
 /* Zoom Controls */
@@ -56,7 +60,7 @@ body {
     border-radius: 50%;
     font-size: 20px;
     cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -110,8 +114,10 @@ body {
     justify-content: center;
     gap: 2px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    touch-action: manipulation; /* Improves touch responsiveness */
-    -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
+    touch-action: manipulation;
+    /* Improves touch responsiveness */
+    -webkit-tap-highlight-color: transparent;
+    /* Remove tap highlight */
 }
 
 .btn-icon {
@@ -174,19 +180,34 @@ body {
 /* Responsive Design */
 @media (max-width: 480px) {
     #container {
-        margin-bottom: 75px;
+        margin-bottom: 120px;
+        /* Space for 2 rows of toolbar */
+    }
+
+    #zoomControls {
+        bottom: 130px;
+        /* Position above the taller toolbar */
+        right: 10px;
     }
 
     .toolbar-btn {
-        flex: 0 1 calc(33.33% - 4px);
+        flex: 0 1 calc(20% - 4px);
+        /* 5 buttons per row */
         min-height: 50px;
         height: 50px;
+        min-width: 40px;
+        /* Allow buttons to shrink */
+        padding: 2px;
     }
-    
+
     .btn-label {
-        font-size: 10px;
+        font-size: 9px;
+        display: block;
+        transform: scale(0.9);
+        width: 100%;
+        text-align: center;
     }
-    
+
     .btn-icon {
         font-size: 18px;
     }
@@ -202,11 +223,11 @@ body {
         min-height: 60px;
         height: 60px;
     }
-    
+
     .btn-label {
         font-size: 12px;
     }
-    
+
     .btn-icon {
         font-size: 24px;
     }
