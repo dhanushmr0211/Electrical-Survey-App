@@ -370,6 +370,11 @@ const undoBtn = document.getElementById('undoBtn');
 
 const renameBtn = document.getElementById('renameBtn');
 const loadBtn = document.getElementById('loadBtn');
+
+const exportBtn = document.getElementById('exportBtn');
+const exportPdfBtn = document.getElementById('exportPdfBtn');
+const importBtn = document.getElementById('importBtn');
+const importFileInput = document.getElementById('importFile');
 const newPageBtn = document.getElementById('newPageBtn');
 
 // Pan Button Handler
@@ -498,6 +503,22 @@ renameBtn.addEventListener('click', () => {
 
 loadBtn.addEventListener('click', () => {
     loadFromLocalStorage();
+});
+
+exportBtn.addEventListener('click', () => {
+    exportFile();
+});
+
+exportPdfBtn.addEventListener('click', () => {
+    exportToPdf();
+});
+
+importBtn.addEventListener('click', () => {
+    importFileInput.click();
+});
+
+importFileInput.addEventListener('change', (e) => {
+    importFile(e);
 });
 
 newPageBtn.addEventListener('click', () => {
@@ -691,6 +712,198 @@ function renameFile() {
     }
 }
 
+
+// ==========================================
+// Export/Import Functions
+// ==========================================
+function exportFile() {
+    if (!currentFileId) {
+        alert('No file selected. Please create or load a file first.');
+        return;
+    }
+
+    const surveyData = {
+        meta: {
+            app: 'Electrical Survey App',
+            version: '1.0',
+            exportedAt: new Date().toISOString()
+        },
+        survey: {
+            id: currentFileId,
+            name: currentFileName,
+            date: new Date().toLocaleString(),
+            objects: JSON.parse(JSON.stringify(objects)),
+            connections: connections.map(conn => ({
+                id: conn.id,
+                from: conn.from,
+                to: conn.to
+            }))
+        }
+    };
+
+    const json = JSON.stringify(surveyData, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const fileName = `${currentFileName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.esurvey`;
+
+    // Try Web Share API (Mobile)
+    if (navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: 'application/json' })] })) {
+        navigator.share({
+            files: [new File([blob], fileName, { type: 'application/json' })],
+            title: 'Shared Survey',
+            text: `Sharing survey: ${currentFileName}`
+        }).catch(console.error);
+    } else {
+        // Fallback to download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+}
+
+function importFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.esurvey')) {
+        alert('Invalid file format. Please upload a .esurvey file.');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+
+            // Validation
+            if (!data.meta || data.meta.app !== 'Electrical Survey App' || !data.survey) {
+                throw new Error('Invalid survey file structure.');
+            }
+
+            const survey = data.survey;
+
+            // Check for duplicate ID
+            const stored = localStorage.getItem(STORAGE_KEY);
+            let surveys = stored ? JSON.parse(stored) : [];
+
+            if (surveys.some(s => s.id === survey.id)) {
+                if (!confirm(`A survey with ID "${survey.id}" already exists. Do you want to overwrite it?`)) {
+                    // Generate new ID if user doesn't want to overwrite? Or just cancel.
+                    // Let's generate new ID to be safe and avoid conflict
+                    if (confirm('Create as a copy instead?')) {
+                        survey.id = Date.now();
+                        survey.name = survey.name + ' (Copy)';
+                    } else {
+                        return;
+                    }
+                }
+            }
+
+            // Load logic similar to loadSurvey
+            // 1. Save imported survey to localStorage
+            const existingIndex = surveys.findIndex(s => s.id === survey.id);
+            if (existingIndex !== -1) {
+                surveys[existingIndex] = survey;
+            } else {
+                surveys.push(survey);
+            }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(surveys));
+
+            // 2. Load it into workspace
+            loadSurvey(survey);
+
+            // Reset file input
+            event.target.value = '';
+
+        } catch (error) {
+            console.error(error);
+            alert('Error loading file: ' + error.message);
+        }
+    };
+    reader.readAsText(file);
+
+}
+
+function exportToPdf() {
+    if (!currentFileId) {
+        alert('No file selected. Please create or load a file first.');
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 10;
+    let yPos = 20;
+
+    // Header
+    doc.setFontSize(18);
+    doc.text(currentFileName || 'Electrical Survey', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+
+    // Meta Data
+    doc.setFontSize(10);
+    doc.text(`Date: ${new Date().toLocaleString()}`, margin, yPos);
+
+    // Counts
+    const poles = objects.filter(o => o.type === 'pole').length;
+    const transformers = objects.filter(o => o.type === 'transformer').length;
+    const switches = objects.filter(o => o.type === 'switch').length;
+
+    doc.text(`Poles: ${poles}   |   Transformers: ${transformers}   |   Switches: ${switches}`, pageWidth - margin, yPos, { align: 'right' });
+    yPos += 10;
+
+    // Divider
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 5;
+
+    // Capture Canvas
+    // Temporarily reset stage scale/position to capture full extent?
+    // Or just capture current view? Requirement says "high-resolution image of current Konva stage"
+    // Usually better to capture current view or fit to view. Let's capture current visible area.
+
+    // To ensure high quality, use pixelRatio
+    const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+
+    // Calculate aspect ratio to fit in PDF
+    const imgProps = doc.getImageProperties(dataUrl);
+    const pdfImgWidth = pageWidth - (margin * 2);
+    const pdfImgHeight = (imgProps.height * pdfImgWidth) / imgProps.width;
+
+    // Check if image height exceeds page
+    // If so, scale down
+    let finalWidth = pdfImgWidth;
+    let finalHeight = pdfImgHeight;
+
+    if (yPos + finalHeight > pageHeight - margin) {
+        finalHeight = pageHeight - margin - yPos - 10; // -10 for footer space
+        finalWidth = (imgProps.width * finalHeight) / imgProps.height;
+    }
+
+    // Centered Image
+    const xPos = (pageWidth - finalWidth) / 2;
+    doc.addImage(dataUrl, 'PNG', xPos, yPos, finalWidth, finalHeight);
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("Generated by Electrical Survey App", pageWidth / 2, pageHeight - 5, { align: 'center' });
+
+    // Save
+    const safeName = (currentFileName || 'survey').replace(/[^a-z0-9]/gi, '_');
+    doc.save(`${safeName}.pdf`);
+}
+
 // Replaces saveToLocalStorage
 function createNewFile() {
     const surveyName = prompt('Enter new survey name:');
@@ -816,7 +1029,43 @@ function showLoadDialog(surveys) {
             }
         };
 
+        const renameBtn = document.createElement('button');
+        renameBtn.innerHTML = '✎'; // Pencil icon
+        renameBtn.title = "Rename Survey";
+        renameBtn.style.padding = '5px 10px';
+        renameBtn.style.cursor = 'pointer';
+        renameBtn.style.backgroundColor = '#FF9800'; // Orange
+        renameBtn.style.color = 'white';
+        renameBtn.style.border = 'none';
+        renameBtn.style.borderRadius = '3px';
+        renameBtn.onclick = () => {
+            const newName = prompt('Enter new name:', survey.name);
+            if (newName && newName.trim() !== '') {
+                // Update survey in storage
+                let allSurveys = [];
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    allSurveys = JSON.parse(stored);
+                }
+                const sIndex = allSurveys.findIndex(s => s.id === survey.id);
+                if (sIndex !== -1) {
+                    allSurveys[sIndex].name = newName.trim();
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(allSurveys));
+
+                    // If this is the current file, update currentFileName
+                    if (currentFileId === survey.id) {
+                        currentFileName = newName.trim();
+                    }
+
+                    // Refresh dialog
+                    document.body.removeChild(dialog);
+                    setTimeout(loadFromLocalStorage, 100);
+                }
+            }
+        };
+
         actions.appendChild(loadBtn);
+        actions.appendChild(renameBtn); // Add rename button
         actions.appendChild(deleteBtn);
 
         item.appendChild(info);

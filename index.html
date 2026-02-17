@@ -51,12 +51,20 @@
                 class="btn-label">Rename</span></button>
         <button id="loadBtn" class="toolbar-btn" title="Load"><span class="btn-icon">📂</span><span
                 class="btn-label">Load</span></button>
+        <button id="exportBtn" class="toolbar-btn" title="Export File"><span class="btn-icon">📤</span><span
+                class="btn-label">Export</span></button>
+        <button id="exportPdfBtn" class="toolbar-btn" title="Export PDF"><span class="btn-icon">📄</span><span
+                class="btn-label">PDF</span></button>
+        <button id="importBtn" class="toolbar-btn" title="Import File"><span class="btn-icon">📥</span><span
+                class="btn-label">Import</span></button>
+        <input type="file" id="importFile" accept=".esurvey" style="display: none;">
         <button id="newPageBtn" class="toolbar-btn" title="New Page"><span class="btn-icon">+</span><span
                 class="btn-label">New</span></button>
     </div>
 
     <!-- Konva.js from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/konva@9/konva.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <!-- Application JavaScript -->
     <script src="app.js"></script>
