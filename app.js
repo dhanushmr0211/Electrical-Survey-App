@@ -1806,22 +1806,7 @@ function recreateText(textData) {
         const scaleX = textNode.scaleX();
         textNode.scaleX(1);
         textNode.scaleY(1);
-        // Update font size
-        const newFontSize = textNode.fontSize() * scaleX;
-        textNode.fontSize(newFontSize);
-
-        // Update data object for persistence
-        textData.fontSize = newFontSize;
-        textData.width = textNode.width(); // If width changed
-        textData.height = textNode.height();
-        textData.rotation = textNode.rotation();
-        textData.x = textNode.x();
-        textData.y = textNode.y();
-    });
-
-    textNode.on('transformend', () => {
-        saveHistory();
-        autoSave();
+        textNode.fontSize(textNode.fontSize() * scaleX);
     });
 
     // Add double-click/double-tap to edit
@@ -1836,12 +1821,6 @@ function recreateText(textData) {
     });
 
     layer.add(textNode);
-    return textNode;
-}
-
-function createAndSelectText(x, y, content) {
-    const textNode = createText(x, y, content);
-    selectTextForResizing(textNode);
     return textNode;
 }
 
@@ -2228,7 +2207,6 @@ stage.on('tap click', (e) => {
         // Get click position
         // Use helper function for accurate coordinates
         const pos = getRelativePointerPosition(stage);
-        const pointer = stage.getPointerPosition(); // For logging
 
         console.log('Click on stage:', { pointer, stagePos: stage.position(), scale: stage.scaleX(), result: pos });
 
@@ -2238,8 +2216,53 @@ stage.on('tap click', (e) => {
         } else if (currentTool === 'transformer') {
             createTransformer(pos.x, pos.y);
         } else if (currentTool === 'text') {
-            // Create default text object immediately (Word-like behavior)
-            createAndSelectText(pos.x, pos.y, "Text");
+            // Check if clicking existing text is handled by dblclick
+            // If we click empty space, create new text
+
+            // Create textarea for new input
+            const textarea = document.createElement('textarea');
+            document.body.appendChild(textarea);
+
+            textarea.style.position = 'absolute';
+            textarea.style.top = `${pointer.y + container.offsetTop}px`;
+            textarea.style.left = `${pointer.x + container.offsetLeft}px`;
+            textarea.style.zIndex = '1000';
+            textarea.style.fontWeight = 'bold';
+            textarea.placeholder = 'Type text...';
+            textarea.style.background = 'transparent'; // match style
+            // textarea.style.border = '1px solid #ccc'; // minimal border to see it
+
+            textarea.focus();
+
+            function finishCreation() {
+                if (!document.body.contains(textarea)) return;
+
+                const val = textarea.value;
+                if (val && val.trim() !== '') {
+                    createText(pos.x, pos.y, val);
+                }
+                document.body.removeChild(textarea);
+                window.removeEventListener('mousedown', handleOutside);
+            }
+
+            function handleOutside(e) {
+                if (e.target !== textarea) {
+                    finishCreation();
+                }
+            }
+
+            // Wait a tick so the current click doesn't trigger handleOutside
+            setTimeout(() => {
+                window.addEventListener('mousedown', handleOutside);
+            });
+
+            textarea.addEventListener('keydown', function (e) {
+                // Enter allows new line
+                if (e.key === 'Escape') {
+                    document.body.removeChild(textarea);
+                    window.removeEventListener('mousedown', handleOutside);
+                }
+            });
         }
     }
 
