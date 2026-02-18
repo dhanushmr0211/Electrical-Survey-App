@@ -199,8 +199,8 @@ const stage = new Konva.Stage({
 // Zoom & Pan Logic
 // ==========================================
 const scaleBy = 1.1;
-const MIN_ZOOM = 0.3;
-const MAX_ZOOM = 5.0;
+const MIN_ZOOM = 0.05; // Allow zooming out much further to see huge surveys
+const MAX_ZOOM = 10.0; // Allow zooming in closer
 const INITIAL_SCALE = 1;
 
 function getDistance(p1, p2) {
@@ -223,11 +223,10 @@ stage.on('touchmove', function (e) {
     var touch1 = e.evt.touches[0];
     var touch2 = e.evt.touches[1];
 
+    // Only process if 2 fingers
     if (touch1 && touch2) {
-        e.evt.preventDefault(); // Prevent browser zoom only when pinching
+        e.evt.preventDefault(); // Prevent browser zoom
 
-        // if the stage was under Konva's drag&drop
-        // we need to stop it, and implement our own pan logic with 2 pointers
         if (stage.isDragging()) {
             stage.stopDrag();
         }
@@ -241,20 +240,15 @@ stage.on('touchmove', function (e) {
             y: touch2.clientY,
         };
 
-        if (!lastCenter) {
-            lastCenter = getCenter(p1, p2);
-            return;
-        }
-        var newCenter = getCenter(p1, p2);
-
         var dist = getDistance(p1, p2);
+        var newCenter = getCenter(p1, p2);
 
         if (!lastDist) {
             lastDist = dist;
+            return;
         }
 
-        // local coordinates of center point
-        // Calculate pointTo based on old scale/pos
+        // Calculate the world point under the center of the pinch
         var pointTo = {
             x: (newCenter.x - stage.x()) / stage.scaleX(),
             y: (newCenter.y - stage.y()) / stage.scaleX(),
@@ -262,38 +256,26 @@ stage.on('touchmove', function (e) {
 
         var scale = stage.scaleX() * (dist / lastDist);
 
-        // Clamp scale
-        // Smooth clamping: if outside bounds, apply resistance or hard clamp? 
-        // Hard clamp for stability.
+        // Limit scale
         scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, scale));
 
         stage.scale({ x: scale, y: scale });
 
-        // calculate new position of the stage
-        var dx = newCenter.x - lastCenter.x;
-        var dy = newCenter.y - lastCenter.y;
-
+        // Calculate new position
         var newPos = {
-            x: newCenter.x - pointTo.x * scale + dx,
-            y: newCenter.y - pointTo.y * scale + dy,
+            x: newCenter.x - pointTo.x * scale,
+            y: newCenter.y - pointTo.y * scale,
         };
 
         stage.position(newPos);
+        stage.batchDraw(); // Smoother drawing
 
-        // Update last values for next frame
         lastDist = dist;
-        lastCenter = newCenter;
     }
 });
 
 stage.on('touchend', function () {
     lastDist = 0;
-    lastCenter = null;
-});
-
-stage.on('touchend', function () {
-    lastDist = 0;
-    lastCenter = null;
 });
 
 // Wheel Zoom
@@ -933,13 +915,53 @@ function exportToPdf() {
     doc.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 5;
 
-    // Capture Canvas
-    // Temporarily reset stage scale/position to capture full extent?
-    // Or just capture current view? Requirement says "high-resolution image of current Konva stage"
-    // Usually better to capture current view or fit to view. Let's capture current visible area.
+    // Capture Full Canvas Context
+    // 1. Save current view state
+    const oldScale = stage.scaleX();
+    const oldPos = stage.position();
 
-    // To ensure high quality, use pixelRatio
-    const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+    // 2. Reset view to standard 1:1 to calculate full bounds
+    stage.scale({ x: 1, y: 1 });
+    stage.position({ x: 0, y: 0 });
+    stage.batchDraw(); // Force update needed for getClientRect? Usually not if we don't wait for frame, but let's be safe.
+
+    // 3. Get bounds of all objects
+    // Use layer.getClientRect to correct bounding box of all content
+    // We add some padding
+    const padding = 50;
+    const rect = layer.getClientRect({
+        skipTransform: false // We reset stage, so layer transform is identity. 
+    });
+
+    // Handle empty stage
+    if (rect.width === 0 || rect.height === 0) {
+        rect.x = 0;
+        rect.y = 0;
+        rect.width = stage.width();
+        rect.height = stage.height();
+    } else {
+        // Add padding
+        rect.x -= padding;
+        rect.y -= padding;
+        rect.width += padding * 2;
+        rect.height += padding * 2;
+    }
+
+    // 4. Generate High-Res Image of the area
+    // Use PNG to handle transparency correctly (JPEG turns transparent to black)
+    const dataUrl = stage.toDataURL({
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        pixelRatio: 2, // High resolution
+        mimeType: 'image/png'
+    });
+
+    // 5. Restore view state immediately
+    stage.scale({ x: oldScale, y: oldScale });
+    stage.position(oldPos);
+    stage.batchDraw();
 
     // Calculate aspect ratio to fit in PDF
     const imgProps = doc.getImageProperties(dataUrl);
@@ -1721,6 +1743,13 @@ function createText(x, y, content) {
 let resizeTransformer = new Konva.Transformer({
     nodes: [],
     enabledAnchors: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
+    anchorSize: 25, // Larger for mobile touch
+    anchorCornerRadius: 12,
+    anchorStroke: '#0066ff',
+    anchorFill: '#ffffff',
+    borderStroke: '#0066ff',
+    borderDash: [3, 3],
+    keepRatio: true, // Maintain aspect ratio for text usually
     boundBoxFunc: function (oldBox, newBox) {
         newBox.width = Math.max(30, newBox.width);
         return newBox;
@@ -1797,13 +1826,18 @@ function editText(textObj, textNode) {
     const textarea = document.createElement('textarea');
     document.body.appendChild(textarea);
 
+    // Adjust for stage scale
+    const stageScale = stage.scaleX();
+
     textarea.value = textObj.content;
     textarea.style.position = 'absolute';
     textarea.style.top = areaPosition.y + 'px';
     textarea.style.left = areaPosition.x + 'px';
-    textarea.style.width = textNode.width() - textNode.padding() * 2 + 'px';
-    textarea.style.height = textNode.height() - textNode.padding() * 2 + 5 + 'px';
-    textarea.style.fontSize = textNode.fontSize() + 'px';
+
+    // Scale dimensions and font to match zoom level
+    textarea.style.width = (textNode.width() - textNode.padding() * 2) * stageScale + 'px';
+    textarea.style.height = (textNode.height() - textNode.padding() * 2 + 5) * stageScale + 'px';
+    textarea.style.fontSize = (textNode.fontSize() * stageScale) + 'px';
     textarea.style.border = 'none';
     textarea.style.padding = '0px';
     textarea.style.margin = '0px';
