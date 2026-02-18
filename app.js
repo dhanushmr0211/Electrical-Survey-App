@@ -2205,6 +2205,7 @@ stage.on('tap click', (e) => {
         if (currentTool === 'text' && e.target !== stage) return;
 
         // Get click position
+        const pointer = stage.getPointerPosition();
         // Use helper function for accurate coordinates
         const pos = getRelativePointerPosition(stage);
 
