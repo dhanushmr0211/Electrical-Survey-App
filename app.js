@@ -214,6 +214,18 @@ function getCenter(p1, p2) {
     };
 }
 
+function getRelativePointerPosition(node) {
+    var transform = node.getAbsoluteTransform().copy();
+    // to detect relative position we need to invert transform
+    transform.invert();
+
+    // get pointer (say mouse or touch) position
+    var pos = node.getStage().getPointerPosition();
+
+    // now we can find relative point
+    return transform.point(pos);
+}
+
 let lastCenter = null;
 let lastDist = 0;
 
@@ -248,7 +260,7 @@ stage.on('touchmove', function (e) {
             return;
         }
 
-        // Calculate the world point under the center of the pinch
+        // map the center point to the local coordinates
         var pointTo = {
             x: (newCenter.x - stage.x()) / stage.scaleX(),
             y: (newCenter.y - stage.y()) / stage.scaleX(),
@@ -277,6 +289,8 @@ stage.on('touchmove', function (e) {
 stage.on('touchend', function () {
     lastDist = 0;
 });
+
+
 
 // Wheel Zoom
 stage.on('wheel', (e) => {
@@ -2191,13 +2205,8 @@ stage.on('tap click', (e) => {
         if (currentTool === 'text' && e.target !== stage) return;
 
         // Get click position
-        const pointer = stage.getPointerPosition();
-
-        // Transform pointer to stage local coordinates
-        // This is crucial for Zoom/Pan to work correctly
-        const transform = stage.getAbsoluteTransform().copy();
-        transform.invert();
-        const pos = transform.point(pointer);
+        // Use helper function for accurate coordinates
+        const pos = getRelativePointerPosition(stage);
 
         console.log('Click on stage:', { pointer, stagePos: stage.position(), scale: stage.scaleX(), result: pos });
 
