@@ -215,6 +215,9 @@ let historyStep = -1;
 let currentFileId = null;
 let currentFileName = null;
 
+// Text resize transformer (initialized later after layer creation)
+let resizeTransformer = null;
+
 // ==========================================
 // Initialize Konva Stage
 // ==========================================
@@ -1884,7 +1887,7 @@ function createText(x, y, content) {
 }
 
 // Global transformer for resizing
-let resizeTransformer = new Konva.Transformer({
+resizeTransformer = new Konva.Transformer({
     nodes: [],
     enabledAnchors: ['middle-right'],
     anchorSize: 25, // Larger for mobile touch
@@ -1904,11 +1907,13 @@ layer.add(resizeTransformer);
 
 function selectTextForResizing(textNode) {
     if (currentTool !== 'text') return;
+    if (!resizeTransformer) return;
     resizeTransformer.nodes([textNode]);
     layer.draw();
 }
 
 function clearResizeSelection() {
+    if (!resizeTransformer) return;
     resizeTransformer.nodes([]);
     layer.draw();
 }
