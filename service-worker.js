@@ -1,28 +1,50 @@
 // Service Worker for Electrical Survey App PWA
-const CACHE_NAME = 'electrical-survey-v6';
-const ASSETS_TO_CACHE = [
-  '.',
+const CACHE_PREFIX = 'electrical-survey';
+const CACHE_VERSION = 'v7';
+const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
+const CORE_ASSETS = [
+  './',
   './index.html',
   './style.css',
   './app.js',
   './manifest.json',
-  'https://cdn.jsdelivr.net/npm/konva@9/konva.min.js'
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  'https://cdn.jsdelivr.net/npm/konva@9/konva.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 ];
+
+function isAppShellRequest(request) {
+  const url = new URL(request.url);
+  if (request.mode === 'navigate') return true;
+  if (url.origin !== self.location.origin) return false;
+
+  return (
+    url.pathname === '/' ||
+    url.pathname.endsWith('/index.html') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.json') ||
+    url.pathname.endsWith('.webmanifest')
+  );
+}
 
 // Install event: Cache essential assets
 self.addEventListener('install', (event) => {
   console.log('Service Worker: Installing...');
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    try {
       console.log('Service Worker: Caching assets');
-      return cache.addAll(ASSETS_TO_CACHE).catch((error) => {
-        console.warn('Service Worker: Some assets failed to cache', error);
-        // Continue even if some assets fail to cache
-        return Promise.resolve();
-      });
-    })
-  );
-  // Do NOT skipWaiting automatically. Wait for user to click "Refresh".
+      await cache.addAll(CORE_ASSETS.map((asset) => new Request(asset, { cache: 'reload' })));
+    } catch (error) {
+      console.warn('Service Worker: Some assets failed to cache', error);
+    }
+
+    // Activate new worker immediately to reduce stale app versions.
+    await self.skipWaiting();
+  })());
 });
 
 // Listen for message to skip waiting
@@ -35,22 +57,25 @@ self.addEventListener('message', (event) => {
 // Activate event: Clean up old caches
 self.addEventListener('activate', (event) => {
   console.log('Service Worker: Activating...');
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Service Worker: Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
-  );
-  self.clients.claim();
+  event.waitUntil((async () => {
+    const cacheNames = await caches.keys();
+    await Promise.all(
+      cacheNames.map((cacheName) => {
+        if (cacheName.startsWith(CACHE_PREFIX) && cacheName !== CACHE_NAME) {
+          console.log('Service Worker: Deleting old cache:', cacheName);
+          return caches.delete(cacheName);
+        }
+        return Promise.resolve();
+      })
+    );
+
+    await self.clients.claim();
+  })());
 });
 
-// Fetch event: Serve from cache, fallback to network
+// Fetch event:
+// - App shell files: network-first (get latest on deploy), cache fallback offline.
+// - Other files: cache-first with network fallback.
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
@@ -59,13 +84,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first strategy for HTML to check for updates
-  if (request.url.includes('.html')) {
+  if (isAppShellRequest(request)) {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // Cache the response
-          if (response && response.status === 200) {
+          if (response && response.ok) {
             const responseClone = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(request, responseClone);
@@ -74,16 +97,25 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          // Fallback to cache if offline
           return caches.match(request).then((cachedResponse) => {
-            return cachedResponse || caches.match('./index.html');
+            if (cachedResponse) return cachedResponse;
+            if (request.mode === 'navigate') {
+              return caches.match('./index.html');
+            }
+            return new Response('Offline - Content not available', {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: new Headers({
+                'Content-Type': 'text/plain'
+              })
+            });
           });
         })
     );
     return;
   }
 
-  // Cache-first strategy for everything else
+  // Cache-first strategy for non-app-shell assets
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       if (cachedResponse) {

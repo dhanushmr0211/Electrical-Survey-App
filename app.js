@@ -143,6 +143,46 @@ function showUpdateNotification(registration) {
     document.body.appendChild(overlay);
 }
 
+function showToast(message, duration = 1800) {
+    const existingToast = document.getElementById('app-toast');
+    if (existingToast) {
+        existingToast.remove();
+    }
+
+    const toast = document.createElement('div');
+    toast.id = 'app-toast';
+    toast.textContent = message;
+    toast.style.position = 'fixed';
+    toast.style.left = '50%';
+    toast.style.bottom = '92px';
+    toast.style.transform = 'translateX(-50%)';
+    toast.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+    toast.style.color = '#fff';
+    toast.style.padding = '10px 14px';
+    toast.style.borderRadius = '8px';
+    toast.style.fontSize = '14px';
+    toast.style.fontWeight = '600';
+    toast.style.zIndex = '1500';
+    toast.style.boxShadow = '0 4px 10px rgba(0,0,0,0.3)';
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.2s ease';
+    toast.style.pointerEvents = 'none';
+
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+    });
+
+    window.setTimeout(() => {
+        toast.style.opacity = '0';
+        window.setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 200);
+    }, duration);
+}
+
 // ==========================================
 // Global Variables
 // ==========================================
@@ -401,6 +441,8 @@ const textModeBtn = document.getElementById('textModeBtn');
 const connectModeBtn = document.getElementById('connectModeBtn');
 const deleteBtn = document.getElementById('deleteBtn');
 const undoBtn = document.getElementById('undoBtn');
+const redoBtn = document.getElementById('redoBtn');
+const saveBtn = document.getElementById('saveBtn');
 
 const loadBtn = document.getElementById('loadBtn');
 
@@ -409,6 +451,10 @@ const exportPdfBtn = document.getElementById('exportPdfBtn');
 const importBtn = document.getElementById('importBtn');
 const importFileInput = document.getElementById('importFile');
 const newPageBtn = document.getElementById('newPageBtn');
+const startupOverlay = document.getElementById('startupOverlay');
+const startupViewBtn = document.getElementById('startupViewBtn');
+const startupNewBtn = document.getElementById('startupNewBtn');
+const activeFileBadge = document.getElementById('activeFileBadge');
 
 // Pan Button Handler
 panBtn.addEventListener('click', () => {
@@ -530,6 +576,16 @@ redoBtn.addEventListener('click', () => {
     redo();
 });
 
+saveBtn.addEventListener('click', () => {
+    if (!currentFileId) {
+        showToast('No file selected. Please create or load a file first.');
+        return;
+    }
+
+    autoSave();
+    showToast(`Saved "${currentFileName}" successfully.`);
+});
+
 
 
 loadBtn.addEventListener('click', () => {
@@ -556,8 +612,42 @@ newPageBtn.addEventListener('click', () => {
     createNewFile(); // Renamed to createNewFile
 });
 
+startupViewBtn.addEventListener('click', () => {
+    loadFromLocalStorage({
+        fromStartup: true,
+        onLoaded: () => hideStartupOverlay()
+    });
+});
+
+startupNewBtn.addEventListener('click', () => {
+    createNewFile();
+});
+
 // Initialize button states
 updateHistoryButtons();
+showStartupOverlay();
+updateActiveFileBadge();
+
+function showStartupOverlay() {
+    if (!startupOverlay) return;
+    startupOverlay.classList.remove('hidden');
+}
+
+function hideStartupOverlay() {
+    if (!startupOverlay) return;
+    startupOverlay.classList.add('hidden');
+}
+
+function updateActiveFileBadge() {
+    if (!activeFileBadge) return;
+
+    if (!currentFileId || !currentFileName) {
+        activeFileBadge.textContent = 'Active: Not selected';
+        return;
+    }
+
+    activeFileBadge.textContent = `Active: ${currentFileName}`;
+}
 
 // ==========================================
 // History/Undo-Redo Functions
@@ -721,6 +811,7 @@ function renameFile() {
 
     // Update global state
     currentFileName = trimmedName;
+    updateActiveFileBadge();
 
     // Update localStorage
     let surveys = [];
@@ -1010,8 +1101,8 @@ function exportToPdf() {
 function createNewFile() {
     const surveyName = prompt('Enter new survey name:');
     if (!surveyName || surveyName.trim() === '') {
-        alert('Survey name cannot be empty.');
-        return;
+        showToast('Survey name cannot be empty.');
+        return false;
     }
 
     // Clear canvas and state
@@ -1031,32 +1122,36 @@ function createNewFile() {
     // Set globals
     currentFileId = Date.now();
     currentFileName = surveyName.trim();
+    updateActiveFileBadge();
 
     // Initial Save
     autoSave();
 
-    alert(`Started new survey: "${currentFileName}"`);
+    hideStartupOverlay();
+    showToast(`Started new survey: "${currentFileName}"`);
+
+    return true;
 }
 
-function loadFromLocalStorage() {
+function loadFromLocalStorage(options = {}) {
     // Get surveys from localStorage
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) {
-        alert('No saved surveys found.');
+        showToast('No saved surveys found.');
         return;
     }
 
     const surveys = JSON.parse(stored);
     if (surveys.length === 0) {
-        alert('No saved surveys found.');
+        showToast('No saved surveys found.');
         return;
     }
 
     // Create a custom modal for loading/deleting
-    showLoadDialog(surveys);
+    showLoadDialog(surveys, options);
 }
 
-function showLoadDialog(surveys) {
+function showLoadDialog(surveys, options = {}) {
     // Remove existing dialog if any
     const existing = document.getElementById('loadDialog');
     if (existing) document.body.removeChild(existing);
@@ -1111,6 +1206,9 @@ function showLoadDialog(surveys) {
         loadBtn.onclick = () => {
             loadSurvey(survey);
             document.body.removeChild(dialog);
+            if (typeof options.onLoaded === 'function') {
+                options.onLoaded(survey);
+            }
         };
 
         const deleteBtn = document.createElement('button');
@@ -1157,6 +1255,7 @@ function showLoadDialog(surveys) {
                     // If this is the current file, update currentFileName
                     if (currentFileId === survey.id) {
                         currentFileName = newName.trim();
+                        updateActiveFileBadge();
                     }
 
                     // Refresh dialog
@@ -1190,7 +1289,12 @@ function showLoadDialog(surveys) {
     closeBtn.style.backgroundColor = '#ddd';
     closeBtn.style.border = 'none';
     closeBtn.style.borderRadius = '3px';
-    closeBtn.onclick = () => document.body.removeChild(dialog);
+    closeBtn.onclick = () => {
+        document.body.removeChild(dialog);
+        if (typeof options.onClose === 'function') {
+            options.onClose();
+        }
+    };
     dialog.appendChild(closeBtn);
 
     document.body.appendChild(dialog);
@@ -1258,6 +1362,11 @@ function loadSurvey(survey) {
         recreateConnection(connData);
     });
 
+    // Set current file context
+    currentFileId = survey.id;
+    currentFileName = survey.name;
+    updateActiveFileBadge();
+
     layer.draw();
 
     // Reset history
@@ -1266,12 +1375,9 @@ function loadSurvey(survey) {
     saveHistory();
     updateHistoryButtons();
 
-    alert(`Survey "${survey.name}" loaded successfully!`);
+    hideStartupOverlay();
+    showToast(`Survey "${survey.name}" loaded successfully!`);
     currentTool = null;
-
-    // Set current file context
-    currentFileId = survey.id;
-    currentFileName = survey.name;
 }
 
 // newPage function replaced by createNewFile above
@@ -1693,7 +1799,9 @@ function createText(x, y, content) {
         x: x,
         y: y,
         type: 'text',
-        content: content
+        content: content,
+        fontSize: 16,
+        width: 160
     };
 
     objects.push(textObj);
@@ -1703,11 +1811,12 @@ function createText(x, y, content) {
         x: x,
         y: y,
         text: content,
-        fontSize: 16,
+        fontSize: textObj.fontSize,
         fontFamily: 'Arial',
         fill: 'black',
         fontStyle: 'bold',
         draggable: true,
+        width: textObj.width,
         id: `text-${textObj.id}`
     });
 
@@ -1722,17 +1831,29 @@ function createText(x, y, content) {
         autoSave();
     });
 
-    // Add transform event to update font size or scale
+    // Resize text box and text together
     textNode.on('transform', () => {
-        // Reset scale and update font size properly
         const scaleX = textNode.scaleX();
+        const scaleY = textNode.scaleY();
+
+        const newWidth = Math.max(40, textNode.width() * scaleX);
+        const newFontSize = Math.max(8, textNode.fontSize() * scaleY);
+
+        textNode.width(newWidth);
+        textNode.fontSize(newFontSize);
         textNode.scaleX(1);
         textNode.scaleY(1);
-        textNode.fontSize(textNode.fontSize() * scaleX);
-        textObj.content = textNode.text(); // ensure content is up to date though transform doesn't change it
-        // textObj store fontSize update? 
-        // We simplified the objects array structure, maybe we should add properties like fontSize if we want persistence.
-        // For now, let's just allow visual resizing.
+
+        textObj.x = textNode.x();
+        textObj.y = textNode.y();
+        textObj.width = newWidth;
+        textObj.fontSize = newFontSize;
+        textObj.content = textNode.text();
+    });
+
+    textNode.on('transformend', () => {
+        autoSave();
+        saveHistory();
     });
 
     // Add double-click/double-tap to edit
@@ -1756,16 +1877,17 @@ function createText(x, y, content) {
 // Global transformer for resizing
 let resizeTransformer = new Konva.Transformer({
     nodes: [],
-    enabledAnchors: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
+    enabledAnchors: ['top-left', 'top-center', 'top-right', 'middle-left', 'middle-right', 'bottom-left', 'bottom-center', 'bottom-right'],
     anchorSize: 25, // Larger for mobile touch
     anchorCornerRadius: 12,
     anchorStroke: '#0066ff',
     anchorFill: '#ffffff',
     borderStroke: '#0066ff',
     borderDash: [3, 3],
-    keepRatio: true, // Maintain aspect ratio for text usually
+    keepRatio: false,
     boundBoxFunc: function (oldBox, newBox) {
         newBox.width = Math.max(30, newBox.width);
+        newBox.height = Math.max(20, newBox.height);
         return newBox;
     },
 });
@@ -1789,11 +1911,12 @@ function recreateText(textData) {
         x: textData.x,
         y: textData.y,
         text: textData.content,
-        fontSize: 16, // defaulting to 16 if not saved, ideally we should save fontSize
+        fontSize: textData.fontSize || 16,
         fontFamily: 'Arial',
         fill: 'black',
         fontStyle: 'bold',
         draggable: true,
+        width: textData.width || 160,
         id: `text-${textData.id}`
     });
 
@@ -1804,9 +1927,25 @@ function recreateText(textData) {
 
     textNode.on('transform', () => {
         const scaleX = textNode.scaleX();
+        const scaleY = textNode.scaleY();
+
+        const newWidth = Math.max(40, textNode.width() * scaleX);
+        const newFontSize = Math.max(8, textNode.fontSize() * scaleY);
+
+        textNode.width(newWidth);
+        textNode.fontSize(newFontSize);
         textNode.scaleX(1);
         textNode.scaleY(1);
-        textNode.fontSize(textNode.fontSize() * scaleX);
+
+        textData.x = textNode.x();
+        textData.y = textNode.y();
+        textData.width = newWidth;
+        textData.fontSize = newFontSize;
+    });
+
+    textNode.on('transformend', () => {
+        autoSave();
+        saveHistory();
     });
 
     // Add double-click/double-tap to edit
@@ -1904,6 +2043,8 @@ function editText(textObj, textNode) {
     function updateText() {
         textNode.text(textarea.value);
         textObj.content = textarea.value;
+        textObj.width = textNode.width();
+        textObj.fontSize = textNode.fontSize();
         saveHistory(); // Save state after edit
         layer.draw();
     }
@@ -2191,6 +2332,12 @@ stage.on('tap click', (e) => {
         return;
     }
 
+    if (!currentFileId) {
+        showStartupOverlay();
+        showToast('Start with New or View first.');
+        return;
+    }
+
     // If clicking stage (background), clear resize selection
     if (e.target === stage) {
         clearResizeSelection();
@@ -2348,10 +2495,13 @@ stage.on('tap click', (e) => {
         const clickedElement = e.target;
         let elementId = clickedElement.id();
 
-        // Handle Pole Groups
+        // Handle grouped objects (Pole/Switch)
         const parentGroup = clickedElement.getParent();
-        if (parentGroup instanceof Konva.Group && parentGroup.id().startsWith('pole-')) {
-            elementId = parentGroup.id();
+        if (parentGroup instanceof Konva.Group) {
+            const groupId = parentGroup.id();
+            if (groupId && (groupId.startsWith('pole-') || groupId.startsWith('switch-'))) {
+                elementId = groupId;
+            }
         }
 
         console.log('Clicked element ID:', elementId);
@@ -2367,13 +2517,13 @@ stage.on('tap click', (e) => {
             // Use getObjectById logic or simply check prefix
             let idToDelete = null;
 
-            if (elementId.startsWith('pole-')) {
+            if (elementId && elementId.startsWith('pole-')) {
                 idToDelete = parseInt(elementId.split('-')[1]);
-            } else if (elementId.startsWith('transformer-')) {
+            } else if (elementId && elementId.startsWith('transformer-')) {
                 idToDelete = parseInt(elementId.split('-')[1]);
-            } else if (elementId.startsWith('switch-')) {
+            } else if (elementId && elementId.startsWith('switch-')) {
                 idToDelete = parseInt(elementId.split('-')[1]);
-            } else if (elementId.startsWith('text-')) {
+            } else if (elementId && elementId.startsWith('text-')) {
                 idToDelete = parseInt(elementId.split('-')[1]);
             }
 

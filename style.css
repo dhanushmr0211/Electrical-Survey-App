@@ -29,6 +29,68 @@ body {
     bottom: 0;
 }
 
+.startup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1800;
+    padding: 20px;
+}
+
+.startup-overlay.hidden {
+    display: none;
+}
+
+.startup-card {
+    width: min(420px, 100%);
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    color: #fff;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.startup-card h1 {
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.startup-card p {
+    color: #cfcfcf;
+    font-size: 14px;
+    margin-bottom: 18px;
+}
+
+.startup-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.startup-btn {
+    flex: 1;
+    border: none;
+    border-radius: 10px;
+    height: 46px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #fff;
+    background: #007bff;
+}
+
+.startup-btn:active {
+    transform: scale(0.98);
+}
+
+.startup-btn:hover {
+    background: #0056b3;
+}
+
 #container {
     flex: 1;
     width: 100%;
@@ -50,6 +112,25 @@ body {
     flex-direction: column;
     gap: 10px;
     z-index: 90;
+}
+
+.active-file-badge {
+    position: absolute;
+    top: 20px;
+    left: 16px;
+    z-index: 90;
+    max-width: calc(100vw - 96px);
+    background: rgba(17, 17, 17, 0.85);
+    color: #fff;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    backdrop-filter: blur(3px);
 }
 
 .zoom-btn {
@@ -179,6 +260,14 @@ body {
 
 /* Responsive Design */
 @media (max-width: 480px) {
+    .startup-card {
+        padding: 20px;
+    }
+
+    .startup-card h1 {
+        font-size: 24px;
+    }
+
     #container {
         margin-bottom: 120px;
         /* Space for 2 rows of toolbar */
@@ -189,6 +278,13 @@ body {
         bottom: auto;
         /* Override previous bottom if needed, though media queries cascade */
         right: 10px;
+    }
+
+    .active-file-badge {
+        top: 20px;
+        left: 10px;
+        font-size: 12px;
+        padding: 7px 9px;
     }
 
     .toolbar-btn {

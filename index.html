@@ -17,6 +17,17 @@
 </head>
 
 <body>
+        <div id="startupOverlay" class="startup-overlay">
+                <div class="startup-card">
+                        <h1>Electrical Survey</h1>
+                        <p>Choose how you want to start.</p>
+                        <div class="startup-actions">
+                                <button id="startupViewBtn" class="startup-btn">View</button>
+                                <button id="startupNewBtn" class="startup-btn">New</button>
+                        </div>
+                </div>
+        </div>
+
     <!-- Container for Konva stage -->
     <div id="container"></div>
 
@@ -26,6 +37,8 @@
         <button id="zoomOutBtn" class="zoom-btn" title="Zoom Out">&minus;</button>
         <button id="fitViewBtn" class="zoom-btn" title="Fit to View">⛶</button>
     </div>
+
+        <div id="activeFileBadge" class="active-file-badge">Active: Not selected</div>
 
     <!-- Toolbar (Bottom Fixed) -->
     <div id="toolbar">
@@ -47,6 +60,8 @@
                 class="btn-label">Undo</span></button>
         <button id="redoBtn" class="toolbar-btn" title="Redo"><span class="btn-icon">↷</span><span
                 class="btn-label">Redo</span></button>
+        <button id="saveBtn" class="toolbar-btn" title="Save"><span class="btn-icon">💾</span><span
+                class="btn-label">Save</span></button>
 
         <button id="loadBtn" class="toolbar-btn" title="Load"><span class="btn-icon">📂</span><span
                 class="btn-label">Load</span></button>
