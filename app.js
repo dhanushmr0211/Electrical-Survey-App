@@ -1828,7 +1828,9 @@ function createText(x, y, content) {
         draggable: currentTool === 'text',
         width: textObj.width,
         id: `text-${textObj.id}`,
-        listening: true
+        listening: true,
+        perfectDrawEnabled: false,
+        hitStrokeWidth: 0
     });
 
     textNode.on('dragmove', () => {
@@ -1963,7 +1965,9 @@ function recreateText(textData) {
         draggable: currentTool === 'text',
         width: textData.width || 160,
         id: `text-${textData.id}`,
-        listening: true
+        listening: true,
+        perfectDrawEnabled: false,
+        hitStrokeWidth: 0
     });
 
     textNode.on('dragmove', () => {
@@ -2133,6 +2137,9 @@ function editText(textObj, textNode) {
 
 function updateTextInteractionState() {
     const isTextMode = currentTool === 'text';
+
+    // Disable stage dragging in text mode so text nodes can receive clicks
+    stage.draggable(!isTextMode);
 
     if (!isTextMode) {
         clearResizeSelection();
