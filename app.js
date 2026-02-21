@@ -1810,7 +1810,7 @@ function createText(x, y, content) {
         y: y,
         type: 'text',
         content: content,
-        fontSize: 32,
+        fontSize: 35,
         width: 160
     };
 
@@ -1958,7 +1958,7 @@ function recreateText(textData) {
         x: textData.x,
         y: textData.y,
         text: textData.content,
-        fontSize: textData.fontSize || 32,
+        fontSize: textData.fontSize || 35,
         fontFamily: 'Arial',
         fill: 'black',
         fontStyle: 'bold',
