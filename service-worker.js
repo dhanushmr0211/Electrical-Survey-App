@@ -1,6 +1,6 @@
 // Service Worker for Electrical Survey App PWA
 const CACHE_PREFIX = 'electrical-survey';
-const CACHE_VERSION = 'v7.2';
+const CACHE_VERSION = 'v7.3';
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const CORE_ASSETS = [
   './',

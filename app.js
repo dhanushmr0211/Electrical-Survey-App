@@ -1874,13 +1874,18 @@ function createText(x, y, content) {
         editText(textObj, textNode);
     });
 
-    // Add tap/click to select/resize (mobile + desktop)
-    textNode.on('touchstart mousedown', (e) => {
+    // Add click/tap to select for resizing
+    textNode.on('click', (e) => {
         if (currentTool !== 'text') return;
-        console.log('Text node touched/clicked:', textObj.id);
-        // Prevent stage click processing
+        console.log('Text node clicked (desktop):', textObj.id);
         e.cancelBubble = true;
-        e.evt.preventDefault();
+        selectTextForResizing(textNode);
+    });
+
+    textNode.on('tap', (e) => {
+        if (currentTool !== 'text') return;
+        console.log('Text node tapped (mobile):', textObj.id);
+        e.cancelBubble = true;
         selectTextForResizing(textNode);
     });
 
@@ -1996,12 +2001,18 @@ function recreateText(textData) {
         editText(textData, textNode);
     });
 
-    // Add tap/click to select/resize (mobile + desktop)
-    textNode.on('touchstart mousedown', (e) => {
+    // Add click/tap to select for resizing
+    textNode.on('click', (e) => {
         if (currentTool !== 'text') return;
-        console.log('Text node touched/clicked:', textData.id);
+        console.log('Text node clicked (desktop):', textData.id);
         e.cancelBubble = true;
-        e.evt.preventDefault();
+        selectTextForResizing(textNode);
+    });
+
+    textNode.on('tap', (e) => {
+        if (currentTool !== 'text') return;
+        console.log('Text node tapped (mobile):', textData.id);
+        e.cancelBubble = true;
         selectTextForResizing(textNode);
     });
 
