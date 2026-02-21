@@ -475,6 +475,7 @@ panBtn.addEventListener('click', () => {
         stage.container().style.cursor = 'grab';
         stage.draggable(true);
     }
+    updateTextInteractionState();
 });
 
 addPoleBtn.addEventListener('click', () => {
@@ -491,6 +492,7 @@ addPoleBtn.addEventListener('click', () => {
         deleteBtn.classList.remove('active');
         clearSelection();
     }
+    updateTextInteractionState();
 });
 
 addSwitchBtn.addEventListener('click', () => {
@@ -512,6 +514,7 @@ addTransformerBtn.addEventListener('click', () => {
         deleteBtn.classList.remove('active');
         clearSelection();
     }
+    updateTextInteractionState();
 });
 
 textModeBtn.addEventListener('click', () => {
@@ -528,6 +531,7 @@ textModeBtn.addEventListener('click', () => {
         deleteBtn.classList.remove('active');
         clearSelection();
     }
+    updateTextInteractionState();
 });
 
 connectModeBtn.addEventListener('click', () => {
@@ -547,6 +551,7 @@ connectModeBtn.addEventListener('click', () => {
         clearSelection();
         console.log('Connect mode activated');
     }
+    updateTextInteractionState();
 });
 
 deleteBtn.addEventListener('click', () => {
@@ -566,6 +571,7 @@ deleteBtn.addEventListener('click', () => {
         clearSelection();
         console.log('Delete mode activated');
     }
+    updateTextInteractionState();
 });
 
 undoBtn.addEventListener('click', () => {
@@ -627,6 +633,7 @@ startupNewBtn.addEventListener('click', () => {
 updateHistoryButtons();
 showStartupOverlay();
 updateActiveFileBadge();
+updateTextInteractionState();
 
 function showStartupOverlay() {
     if (!startupOverlay) return;
@@ -1815,7 +1822,7 @@ function createText(x, y, content) {
         fontFamily: 'Arial',
         fill: 'black',
         fontStyle: 'bold',
-        draggable: true,
+        draggable: currentTool === 'text',
         width: textObj.width,
         id: `text-${textObj.id}`
     });
@@ -1858,11 +1865,13 @@ function createText(x, y, content) {
 
     // Add double-click/double-tap to edit
     textNode.on('dblclick dbltap', () => {
+        if (currentTool !== 'text') return;
         editText(textObj, textNode);
     });
 
     // Add click to select/resize
     textNode.on('click tap', (e) => {
+        if (currentTool !== 'text') return;
         // Prevent stage click processing
         e.cancelBubble = true;
         selectTextForResizing(textNode);
@@ -1877,7 +1886,7 @@ function createText(x, y, content) {
 // Global transformer for resizing
 let resizeTransformer = new Konva.Transformer({
     nodes: [],
-    enabledAnchors: ['top-left', 'top-center', 'top-right', 'middle-left', 'middle-right', 'bottom-left', 'bottom-center', 'bottom-right'],
+    enabledAnchors: ['middle-right'],
     anchorSize: 25, // Larger for mobile touch
     anchorCornerRadius: 12,
     anchorStroke: '#0066ff',
@@ -1894,7 +1903,7 @@ let resizeTransformer = new Konva.Transformer({
 layer.add(resizeTransformer);
 
 function selectTextForResizing(textNode) {
-    if (currentTool === 'delete') return; // Don't select if deleting
+    if (currentTool !== 'text') return;
     resizeTransformer.nodes([textNode]);
     layer.draw();
 }
@@ -1915,7 +1924,7 @@ function recreateText(textData) {
         fontFamily: 'Arial',
         fill: 'black',
         fontStyle: 'bold',
-        draggable: true,
+        draggable: currentTool === 'text',
         width: textData.width || 160,
         id: `text-${textData.id}`
     });
@@ -1950,11 +1959,13 @@ function recreateText(textData) {
 
     // Add double-click/double-tap to edit
     textNode.on('dblclick dbltap', () => {
+        if (currentTool !== 'text') return;
         editText(textData, textNode);
     });
 
     // Add click to select/resize
     textNode.on('click tap', (e) => {
+        if (currentTool !== 'text') return;
         e.cancelBubble = true;
         selectTextForResizing(textNode);
     });
@@ -1964,6 +1975,8 @@ function recreateText(textData) {
 }
 
 function editText(textObj, textNode) {
+    if (currentTool !== 'text') return;
+
     // Hide text node and transformer while editing
     textNode.hide();
     resizeTransformer.nodes([]); // Deselect
@@ -2070,6 +2083,24 @@ function editText(textObj, textNode) {
     setTimeout(() => {
         window.addEventListener('click', handleOutsideClick);
     });
+}
+
+function updateTextInteractionState() {
+    const isTextMode = currentTool === 'text';
+
+    if (!isTextMode) {
+        clearResizeSelection();
+    }
+
+    objects.forEach((obj) => {
+        if (obj.type !== 'text') return;
+        const textNode = layer.findOne(`#text-${obj.id}`);
+        if (textNode) {
+            textNode.draggable(isTextMode);
+        }
+    });
+
+    layer.draw();
 }
 
 // ==========================================
