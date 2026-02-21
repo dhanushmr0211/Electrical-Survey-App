@@ -2398,11 +2398,8 @@ stage.on('tap click', (e) => {
 
     // Handle placement modes
     if (currentTool === 'pole' || currentTool === 'transformer' || currentTool === 'text') {
-        // Ignore clicks on shapes
+        // Ignore clicks on shapes for pole/transformer
         if (currentTool !== 'text' && e.target !== stage) return;
-
-        // For text, we might want to allow editing if clicking existing text, but for now mostly placement
-        if (currentTool === 'text' && e.target !== stage) return;
 
         // Get click position
         const pointer = stage.getPointerPosition();
@@ -2417,8 +2414,9 @@ stage.on('tap click', (e) => {
         } else if (currentTool === 'transformer') {
             createTransformer(pos.x, pos.y);
         } else if (currentTool === 'text') {
-            // Check if clicking existing text is handled by dblclick
-            // If we click empty space, create new text
+            // Only create new text if clicking stage (blank area)
+            // Clicking existing text is handled by text node events
+            if (e.target !== stage) return;
 
             // Create textarea for new input
             const textarea = document.createElement('textarea');
