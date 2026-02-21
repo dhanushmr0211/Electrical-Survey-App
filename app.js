@@ -1847,7 +1847,8 @@ function createText(x, y, content) {
         const scaleY = textNode.scaleY();
 
         const newWidth = Math.max(40, textNode.width() * scaleX);
-        const newFontSize = Math.max(8, textNode.fontSize() * scaleY);
+        const textScale = Math.max(Math.abs(scaleX), Math.abs(scaleY));
+        const newFontSize = Math.max(8, textNode.fontSize() * textScale);
 
         textNode.width(newWidth);
         textNode.fontSize(newFontSize);
@@ -1872,8 +1873,8 @@ function createText(x, y, content) {
         editText(textObj, textNode);
     });
 
-    // Add click to select/resize
-    textNode.on('click tap', (e) => {
+    // Add tap/click to select/resize (mobile + desktop)
+    textNode.on('mousedown touchstart click tap', (e) => {
         if (currentTool !== 'text') return;
         // Prevent stage click processing
         e.cancelBubble = true;
@@ -1889,14 +1890,28 @@ function createText(x, y, content) {
 // Global transformer for resizing
 resizeTransformer = new Konva.Transformer({
     nodes: [],
-    enabledAnchors: ['middle-right'],
-    anchorSize: 25, // Larger for mobile touch
+    enabledAnchors: ['middle-left', 'middle-right'],
+    anchorSize: 34,
     anchorCornerRadius: 12,
-    anchorStroke: '#0066ff',
+    anchorStroke: '#0f172a',
     anchorFill: '#ffffff',
-    borderStroke: '#0066ff',
+    anchorStrokeWidth: 2,
+    borderStroke: '#22c55e',
     borderDash: [3, 3],
     keepRatio: false,
+    rotateEnabled: false,
+    padding: 10,
+    anchorStyleFunc: function (anchor) {
+        if (anchor.hasName('middle-left')) {
+            anchor.fill('#22c55e');
+            anchor.stroke('#15803d');
+        }
+
+        if (anchor.hasName('middle-right')) {
+            anchor.fill('#f59e0b');
+            anchor.stroke('#b45309');
+        }
+    },
     boundBoxFunc: function (oldBox, newBox) {
         newBox.width = Math.max(30, newBox.width);
         newBox.height = Math.max(20, newBox.height);
@@ -1909,6 +1924,7 @@ function selectTextForResizing(textNode) {
     if (currentTool !== 'text') return;
     if (!resizeTransformer) return;
     resizeTransformer.nodes([textNode]);
+    resizeTransformer.forceUpdate();
     layer.draw();
 }
 
@@ -1944,7 +1960,8 @@ function recreateText(textData) {
         const scaleY = textNode.scaleY();
 
         const newWidth = Math.max(40, textNode.width() * scaleX);
-        const newFontSize = Math.max(8, textNode.fontSize() * scaleY);
+        const textScale = Math.max(Math.abs(scaleX), Math.abs(scaleY));
+        const newFontSize = Math.max(8, textNode.fontSize() * textScale);
 
         textNode.width(newWidth);
         textNode.fontSize(newFontSize);
@@ -1968,8 +1985,8 @@ function recreateText(textData) {
         editText(textData, textNode);
     });
 
-    // Add click to select/resize
-    textNode.on('click tap', (e) => {
+    // Add tap/click to select/resize (mobile + desktop)
+    textNode.on('mousedown touchstart click tap', (e) => {
         if (currentTool !== 'text') return;
         e.cancelBubble = true;
         selectTextForResizing(textNode);
