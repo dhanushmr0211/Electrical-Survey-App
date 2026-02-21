@@ -186,17 +186,17 @@ function showToast(message, duration = 1800) {
 // ==========================================
 // Global Variables
 // ==========================================
-const POLE_RADIUS = 10;
+const POLE_RADIUS = 20;
 const POLE_COLOR = '#000000';
-const TRANSFORMER_WIDTH = 40;
-const TRANSFORMER_HEIGHT = 30;
+const TRANSFORMER_WIDTH = 60;
+const TRANSFORMER_HEIGHT = 45;
 const TRANSFORMER_COLOR = '#0066ff';
 const HIGHLIGHT_STROKE = '#ff0000';
 const HIGHLIGHT_STROKE_WIDTH = 2;
 const CONNECTION_LINE_WIDTH = 3;
 
 const CONNECTION_LINE_COLOR = '#000000';
-const SWITCH_SIZE = 20;
+const SWITCH_SIZE = 40;
 const SWITCH_COLOR = '#000000';
 
 let objects = [];
@@ -1451,10 +1451,10 @@ function createPole(x, y) {
 
     // Create Text for Pole Number
     const text = new Konva.Text({
-        x: 12,
-        y: -14, // Moved up from -10 to -14 (approx 4px / ~0.1cm)
+        x: 24,
+        y: -28,
         text: currentPoleNum.toString(),
-        fontSize: 14,
+        fontSize: 28,
         fontFamily: 'Arial',
         fill: 'black',
         fontStyle: 'bold'
@@ -1514,10 +1514,10 @@ function recreatePole(poleData) {
 
     // Create Text for Pole Number
     const text = new Konva.Text({
-        x: 12,
-        y: -14, // Moved up from -10 to -14 (approx 4px / ~0.1cm)
+        x: 24,
+        y: -28,
         text: (poleData.poleNumber || "").toString(),
-        fontSize: 14,
+        fontSize: 28,
         fontFamily: 'Arial',
         fill: 'black',
         fontStyle: 'bold'
@@ -1648,7 +1648,7 @@ function createSwitchAdjacentToLastPole() {
     let x, y;
     if (lastPole) {
         // Place adjacent to the last pole (e.g., to the right)
-        x = lastPole.x + 30; // 30px offset
+        x = lastPole.x + 60;
         y = lastPole.y;
     } else {
         // Default to center if no poles
@@ -1688,10 +1688,10 @@ function createSwitch(x, y) {
 
     // Main body (tiny connection box)
     const box = new Konva.Rect({
-        x: -10,
-        y: -10,
-        width: 20,
-        height: 20,
+        x: -SWITCH_SIZE / 2,
+        y: -SWITCH_SIZE / 2,
+        width: SWITCH_SIZE,
+        height: SWITCH_SIZE,
         fill: 'white',
         stroke: 'black',
         strokeWidth: 2
@@ -1699,7 +1699,7 @@ function createSwitch(x, y) {
 
     // Switch lever (open state)
     const lever = new Konva.Line({
-        points: [-5, 5, 10, -10],
+        points: [-10, 10, 20, -20],
         stroke: 'black',
         strokeWidth: 2,
         lineCap: 'round'
@@ -1707,15 +1707,15 @@ function createSwitch(x, y) {
 
     // Label "SR"
     const text = new Konva.Text({
-        x: -10,
-        y: 12,
+        x: -SWITCH_SIZE / 2,
+        y: 24,
         text: 'SR',
-        fontSize: 10,
+        fontSize: 20,
         fontFamily: 'Arial',
         fill: 'black',
         fontStyle: 'bold',
         align: 'center',
-        width: 20
+        width: SWITCH_SIZE
     });
 
     group.add(box);
@@ -1751,32 +1751,32 @@ function recreateSwitch(switchData) {
     });
 
     const box = new Konva.Rect({
-        x: -10,
-        y: -10,
-        width: 20,
-        height: 20,
+        x: -SWITCH_SIZE / 2,
+        y: -SWITCH_SIZE / 2,
+        width: SWITCH_SIZE,
+        height: SWITCH_SIZE,
         fill: 'white',
         stroke: 'black',
         strokeWidth: 2
     });
 
     const lever = new Konva.Line({
-        points: [-5, 5, 10, -10],
+        points: [-10, 10, 20, -20],
         stroke: 'black',
         strokeWidth: 2,
         lineCap: 'round'
     });
 
     const text = new Konva.Text({
-        x: -10,
-        y: 12,
+        x: -SWITCH_SIZE / 2,
+        y: 24,
         text: 'SR',
-        fontSize: 10,
+        fontSize: 20,
         fontFamily: 'Arial',
         fill: 'black',
         fontStyle: 'bold',
         align: 'center',
-        width: 20
+        width: SWITCH_SIZE
     });
 
     group.add(box);
@@ -1810,7 +1810,7 @@ function createText(x, y, content) {
         y: y,
         type: 'text',
         content: content,
-        fontSize: 16,
+        fontSize: 32,
         width: 160
     };
 
@@ -1958,7 +1958,7 @@ function recreateText(textData) {
         x: textData.x,
         y: textData.y,
         text: textData.content,
-        fontSize: textData.fontSize || 16,
+        fontSize: textData.fontSize || 32,
         fontFamily: 'Arial',
         fill: 'black',
         fontStyle: 'bold',
