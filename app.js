@@ -1827,7 +1827,8 @@ function createText(x, y, content) {
         fontStyle: 'bold',
         draggable: currentTool === 'text',
         width: textObj.width,
-        id: `text-${textObj.id}`
+        id: `text-${textObj.id}`,
+        listening: true
     });
 
     textNode.on('dragmove', () => {
@@ -1874,10 +1875,12 @@ function createText(x, y, content) {
     });
 
     // Add tap/click to select/resize (mobile + desktop)
-    textNode.on('mousedown touchstart click tap', (e) => {
+    textNode.on('touchstart mousedown', (e) => {
         if (currentTool !== 'text') return;
+        console.log('Text node touched/clicked:', textObj.id);
         // Prevent stage click processing
         e.cancelBubble = true;
+        e.evt.preventDefault();
         selectTextForResizing(textNode);
     });
 
@@ -1921,8 +1924,15 @@ resizeTransformer = new Konva.Transformer({
 layer.add(resizeTransformer);
 
 function selectTextForResizing(textNode) {
-    if (currentTool !== 'text') return;
-    if (!resizeTransformer) return;
+    if (currentTool !== 'text') {
+        console.log('selectTextForResizing blocked: not in text mode');
+        return;
+    }
+    if (!resizeTransformer) {
+        console.log('selectTextForResizing blocked: no transformer');
+        return;
+    }
+    console.log('Selecting text for resizing:', textNode.id());
     resizeTransformer.nodes([textNode]);
     resizeTransformer.forceUpdate();
     layer.draw();
@@ -1947,7 +1957,8 @@ function recreateText(textData) {
         fontStyle: 'bold',
         draggable: currentTool === 'text',
         width: textData.width || 160,
-        id: `text-${textData.id}`
+        id: `text-${textData.id}`,
+        listening: true
     });
 
     textNode.on('dragmove', () => {
@@ -1986,9 +1997,11 @@ function recreateText(textData) {
     });
 
     // Add tap/click to select/resize (mobile + desktop)
-    textNode.on('mousedown touchstart click tap', (e) => {
+    textNode.on('touchstart mousedown', (e) => {
         if (currentTool !== 'text') return;
+        console.log('Text node touched/clicked:', textData.id);
         e.cancelBubble = true;
+        e.evt.preventDefault();
         selectTextForResizing(textNode);
     });
 
