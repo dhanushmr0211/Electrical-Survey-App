@@ -28,6 +28,38 @@
                 </div>
         </div>
 
+    <!-- Progress Popup -->
+    <div id="progressOverlay" class="progress-overlay hidden">
+        <div class="progress-card">
+            <h2>Converting to PDF</h2>
+            <div class="progress-visual">
+                <div class="progress-component pole" id="progPole">
+                    <span class="component-icon">⬤</span>
+                    <span class="component-label">Pole</span>
+                </div>
+                <div class="progress-line" id="progLine1"></div>
+                <div class="progress-component transformer" id="progTransformer">
+                    <span class="component-icon">⚡</span>
+                    <span class="component-label">Transformer</span>
+                </div>
+                <div class="progress-line" id="progLine2"></div>
+                <div class="progress-component sr" id="progSR">
+                    <span class="component-icon">__/</span>
+                    <span class="component-label">SR</span>
+                </div>
+                <div class="progress-line" id="progLine3"></div>
+                <div class="progress-component bus" id="progBus">
+                    <span class="component-icon">═</span>
+                    <span class="component-label">Bus</span>
+                </div>
+            </div>
+            <div class="progress-bar-container">
+                <div id="progressBar" class="progress-bar"></div>
+            </div>
+            <p id="progressText" class="progress-text">Starting...</p>
+        </div>
+    </div>
+
     <!-- Container for Konva stage -->
     <div id="container"></div>
 
@@ -72,7 +104,7 @@
                 class="btn-label">PDF</span></button>
         <button id="importBtn" class="toolbar-btn" title="Import File"><span class="btn-icon">📥</span><span
                 class="btn-label">Import</span></button>
-        <input type="file" id="importFile" accept=".esurvey,.json,application/json" style="display: none;">
+        <input type="file" id="importFile" accept=".txt,.esurvey,.json,application/json" style="display: none;">
         <button id="newPageBtn" class="toolbar-btn" title="New Page"><span class="btn-icon">+</span><span
                 class="btn-label">New</span></button>
     </div>

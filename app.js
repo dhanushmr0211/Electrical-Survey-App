@@ -875,13 +875,13 @@ function exportFile() {
 
     // Prepare export
     const json = JSON.stringify(surveyData, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const fileName = `${currentFileName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.esurvey`;
+    const blob = new Blob([json], { type: 'text/plain' });
+    const fileName = `${currentFileName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`;
 
     let shareFailed = false;
     try {
         if (navigator.share && navigator.canShare) {
-            const file = new File([blob], fileName, { type: 'application/json' });
+            const file = new File([blob], fileName, { type: 'text/plain' });
             const shareData = {
                 files: [file],
                 title: 'Shared Survey',
@@ -997,6 +997,59 @@ function exportToPdf() {
         return;
     }
 
+    // Show progress popup and start smooth 4-second animation
+    showProgress(0);
+    startProgressAnimation();
+
+    // Start PDF generation in background
+    setTimeout(() => {
+        generatePdfQuietly();
+    }, 100);
+}
+
+function startProgressAnimation() {
+    const totalDuration = 4000; // 4 seconds
+    const updateInterval = 50; // Update every 50ms for smooth animation
+    const steps = totalDuration / updateInterval;
+    let currentStep = 0;
+
+    const progressStages = [
+        { percent: 0, message: 'Starting' },
+        { percent: 10, message: 'Starting' },
+        { percent: 30, message: 'Capturing canvas' },
+        { percent: 60, message: 'Generating image' },
+        { percent: 80, message: 'Creating PDF' },
+        { percent: 100, message: 'Saving' }
+    ];
+
+    const progressInterval = setInterval(() => {
+        currentStep++;
+        const progress = (currentStep / steps) * 100;
+        
+        // Find current stage message
+        let currentMessage = 'Starting';
+        for (let i = progressStages.length - 1; i >= 0; i--) {
+            if (progress >= progressStages[i].percent) {
+                currentMessage = progressStages[i].message;
+                break;
+            }
+        }
+        
+        updateProgress(Math.min(progress, 100), currentMessage);
+        
+        if (currentStep >= steps) {
+            clearInterval(progressInterval);
+            // Hide progress after animation completes
+            setTimeout(() => {
+                hideProgress();
+            }, 300);
+        }
+    }, updateInterval);
+}
+
+function generatePdfQuietly() {
+    // This runs silently while the progress animation plays
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({
         orientation: 'portrait',
@@ -1105,6 +1158,104 @@ function exportToPdf() {
     // Save
     const safeName = (currentFileName || 'survey').replace(/[^a-z0-9]/gi, '_');
     doc.save(`${safeName}.pdf`);
+    
+    // PDF generation complete (progress animation handles the timing)
+}
+
+// Progress popup functions
+function showProgress(percent) {
+    const overlay = document.getElementById('progressOverlay');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    
+    if (overlay) {
+        overlay.classList.remove('hidden');
+        progressBar.style.width = percent + '%';
+        progressText.textContent = 'Starting...';
+        resetProgressVisual();
+    }
+}
+
+function updateProgress(percent, message) {
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    
+    if (progressBar && progressText) {
+        progressBar.style.width = percent + '%';
+        progressText.textContent = message ? `${percent}% - ${message}` : percent + '%';
+        updateProgressVisual(percent);
+    }
+}
+
+function resetProgressVisual() {
+    const components = ['progPole', 'progTransformer', 'progSR', 'progBus'];
+    const lines = ['progLine1', 'progLine2', 'progLine3'];
+    
+    components.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('active', 'completed');
+        }
+    });
+    
+    lines.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('active');
+        }
+    });
+}
+
+function updateProgressVisual(percent) {
+    const pole = document.getElementById('progPole');
+    const line1 = document.getElementById('progLine1');
+    const transformer = document.getElementById('progTransformer');
+    const line2 = document.getElementById('progLine2');
+    const sr = document.getElementById('progSR');
+    const line3 = document.getElementById('progLine3');
+    const bus = document.getElementById('progBus');
+    
+    // Reset all first
+    [pole, transformer, sr, bus].forEach(el => {
+        if (el) el.classList.remove('active', 'completed');
+    });
+    [line1, line2, line3].forEach(el => {
+        if (el) el.classList.remove('active');
+    });
+    
+    // Animate based on progress
+    if (percent >= 10) {
+        pole?.classList.add('active');
+    }
+    if (percent >= 30) {
+        pole?.classList.remove('active');
+        pole?.classList.add('completed');
+        line1?.classList.add('active');
+        transformer?.classList.add('active');
+    }
+    if (percent >= 60) {
+        transformer?.classList.remove('active');
+        transformer?.classList.add('completed');
+        line2?.classList.add('active');
+        sr?.classList.add('active');
+    }
+    if (percent >= 80) {
+        sr?.classList.remove('active');
+        sr?.classList.add('completed');
+        line3?.classList.add('active');
+        bus?.classList.add('active');
+    }
+    if (percent >= 100) {
+        bus?.classList.remove('active');
+        bus?.classList.add('completed');
+    }
+}
+
+function hideProgress() {
+    const overlay = document.getElementById('progressOverlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+    }
 }
 
 // Replaces saveToLocalStorage
