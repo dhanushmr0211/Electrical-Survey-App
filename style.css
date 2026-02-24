@@ -416,6 +416,24 @@ body {
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
 }
 
+.extra-pole-btn {
+    background-color: #ff8c00;
+}
+
+.extra-pole-btn:hover {
+    background-color: #e67600;
+}
+
+.extra-pole-btn.active {
+    background: linear-gradient(135deg, #ff8c00 0%, #ff9f2a 100%);
+    box-shadow: 0 0 12px rgba(255, 140, 0, 0.65);
+}
+
+.extra-pole-btn.active:hover {
+    background: linear-gradient(135deg, #e67600 0%, #ff8c00 100%);
+    box-shadow: 0 0 16px rgba(255, 140, 0, 0.8);
+}
+
 /* Active/Selected Tool */
 .toolbar-btn.active {
     background: linear-gradient(135deg, #28a745 0%, #20c997 100%);

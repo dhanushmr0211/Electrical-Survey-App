@@ -188,6 +188,7 @@ function showToast(message, duration = 1800) {
 // ==========================================
 const POLE_RADIUS = 20;
 const POLE_COLOR = '#000000';
+const EXTRA_POLE_COLOR = '#ff8c00';
 const TRANSFORMER_WIDTH = 60;
 const TRANSFORMER_HEIGHT = 45;
 const TRANSFORMER_COLOR = '#0066ff';
@@ -438,6 +439,7 @@ layer.draw();
 // ==========================================
 const panBtn = document.getElementById('panBtn');
 const addPoleBtn = document.getElementById('addPoleBtn');
+const addExtraPoleBtn = document.getElementById('addExtraPoleBtn');
 const addSwitchBtn = document.getElementById('addSwitchBtn');
 const addTransformerBtn = document.getElementById('addTransformerBtn');
 const textModeBtn = document.getElementById('textModeBtn');
@@ -470,6 +472,7 @@ panBtn.addEventListener('click', () => {
         currentTool = 'pan';
         panBtn.classList.add('active');
         addPoleBtn.classList.remove('active');
+        addExtraPoleBtn.classList.remove('active');
         addTransformerBtn.classList.remove('active');
         textModeBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
@@ -488,7 +491,26 @@ addPoleBtn.addEventListener('click', () => {
     } else {
         currentTool = 'pole';
         addPoleBtn.classList.add('active');
+        addExtraPoleBtn.classList.remove('active');
         panBtn.classList.remove('active');
+        addTransformerBtn.classList.remove('active');
+        textModeBtn.classList.remove('active');
+        connectModeBtn.classList.remove('active');
+        deleteBtn.classList.remove('active');
+        clearSelection();
+    }
+    updateTextInteractionState();
+});
+
+addExtraPoleBtn.addEventListener('click', () => {
+    if (currentTool === 'extraPole') {
+        currentTool = null;
+        addExtraPoleBtn.classList.remove('active');
+    } else {
+        currentTool = 'extraPole';
+        addExtraPoleBtn.classList.add('active');
+        panBtn.classList.remove('active');
+        addPoleBtn.classList.remove('active');
         addTransformerBtn.classList.remove('active');
         textModeBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
@@ -512,6 +534,7 @@ addTransformerBtn.addEventListener('click', () => {
         addTransformerBtn.classList.add('active');
         panBtn.classList.remove('active');
         addPoleBtn.classList.remove('active');
+        addExtraPoleBtn.classList.remove('active');
         textModeBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
         deleteBtn.classList.remove('active');
@@ -529,6 +552,7 @@ textModeBtn.addEventListener('click', () => {
         textModeBtn.classList.add('active');
         panBtn.classList.remove('active');
         addPoleBtn.classList.remove('active');
+        addExtraPoleBtn.classList.remove('active');
         addTransformerBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
         deleteBtn.classList.remove('active');
@@ -548,6 +572,7 @@ connectModeBtn.addEventListener('click', () => {
         connectModeBtn.classList.add('active');
         panBtn.classList.remove('active');
         addPoleBtn.classList.remove('active');
+        addExtraPoleBtn.classList.remove('active');
         addTransformerBtn.classList.remove('active');
         textModeBtn.classList.remove('active');
         deleteBtn.classList.remove('active');
@@ -568,6 +593,7 @@ deleteBtn.addEventListener('click', () => {
         deleteBtn.classList.add('active');
         panBtn.classList.remove('active');
         addPoleBtn.classList.remove('active');
+        addExtraPoleBtn.classList.remove('active');
         addTransformerBtn.classList.remove('active');
         textModeBtn.classList.remove('active');
         connectModeBtn.classList.remove('active');
@@ -664,7 +690,7 @@ function updateMaxPoleBadge() {
     if (!maxPoleBadge) return;
 
     // Get all existing poles
-    const poles = objects.filter(obj => obj.type === 'pole');
+    const poles = objects.filter(obj => obj.type === 'pole' && !obj.isExtraPole);
     
     if (poles.length === 0) {
         maxPoleBadge.textContent = 'Max Pole: -';
@@ -725,7 +751,7 @@ function loadState(state) {
     // Find max pole number to initialize counter
     let maxPoleNum = 0;
     stateObjects.forEach(obj => {
-        if (obj.type === 'pole' && obj.poleNumber) {
+        if (obj.type === 'pole' && !obj.isExtraPole && obj.poleNumber) {
             if (obj.poleNumber > maxPoleNum) {
                 maxPoleNum = obj.poleNumber;
             }
@@ -1513,7 +1539,7 @@ function loadSurvey(survey) {
     poleCounter = null;
     let maxPoleNum = 0;
     survey.objects.forEach(obj => {
-        if (obj.type === 'pole' && obj.poleNumber) {
+        if (obj.type === 'pole' && !obj.isExtraPole && obj.poleNumber) {
             if (obj.poleNumber > maxPoleNum) maxPoleNum = obj.poleNumber;
         }
     });
@@ -1584,7 +1610,7 @@ function clearCanvas() {
 function getNextAvailablePoleId() {
     // Get all existing pole numbers
     const existingPoleNumbers = objects
-        .filter(obj => obj.type === 'pole')
+        .filter(obj => obj.type === 'pole' && !obj.isExtraPole)
         .map(obj => obj.poleNumber)
         .sort((a, b) => a - b);
     
@@ -1607,12 +1633,14 @@ function getNextAvailablePoleId() {
     return maxPole + 1;
 }
 
-function createPole(x, y) {
+function createPole(x, y, options = {}) {
+    const { manualPoleNumber = null, isExtraPole = false, color = POLE_COLOR } = options;
+
     // Check if there are any existing poles
-    const existingPoles = objects.filter(obj => obj.type === 'pole');
+    const existingPoles = objects.filter(obj => obj.type === 'pole' && !obj.isExtraPole);
     
     // Only prompt for starting pole number if this is truly the FIRST pole
-    if (existingPoles.length === 0 && poleCounter === null) {
+    if (!isExtraPole && existingPoles.length === 0 && poleCounter === null) {
         const input = prompt("Enter starting pole number:", "1");
         if (input === null) return; // Cancelled
         poleCounter = parseInt(input);
@@ -1624,7 +1652,9 @@ function createPole(x, y) {
     // - Otherwise, always find/reuse deleted pole numbers
     let currentPoleNum;
     
-    if (existingPoles.length === 0) {
+    if (isExtraPole) {
+        currentPoleNum = manualPoleNumber;
+    } else if (existingPoles.length === 0) {
         // First pole - use the custom starting number set by user (or 1 by default)
         currentPoleNum = poleCounter;
         poleCounter++; // Increment for next pole
@@ -1639,7 +1669,9 @@ function createPole(x, y) {
         x: x,
         y: y,
         type: 'pole',
-        poleNumber: currentPoleNum
+        poleNumber: currentPoleNum,
+        isExtraPole: isExtraPole,
+        color: color
     };
 
     // Add to objects array
@@ -1653,15 +1685,19 @@ function createPole(x, y) {
         id: `pole-${pole.id}`
     });
 
-    // Create Konva circle
-    const circle = new Konva.Circle({
-        x: 0,
-        y: 0,
-        radius: POLE_RADIUS,
-        fill: POLE_COLOR,
-        listening: true, // receive events
-        hitStrokeWidth: 20
-    });
+    if (isExtraPole) {
+        addExtraPoleGearShape(group, color);
+    } else {
+        const circle = new Konva.Circle({
+            x: 0,
+            y: 0,
+            radius: POLE_RADIUS,
+            fill: color,
+            listening: true, // receive events
+            hitStrokeWidth: 20
+        });
+        group.add(circle);
+    }
 
     // Create Text for Pole Number
     const text = new Konva.Text({
@@ -1674,7 +1710,6 @@ function createPole(x, y) {
         fontStyle: 'bold'
     });
 
-    group.add(circle);
     group.add(text);
 
     // Update pole coordinates on drag
@@ -1699,6 +1734,66 @@ function createPole(x, y) {
     return pole;
 }
 
+function createExtraPole(x, y) {
+    const input = prompt('Enter pole number for Extra Pole:', '1');
+    if (input === null) return;
+
+    const poleNumber = parseInt(input, 10);
+    if (isNaN(poleNumber)) {
+        showToast('Please enter a valid pole number.');
+        return;
+    }
+
+    createPole(x, y, {
+        manualPoleNumber: poleNumber,
+        isExtraPole: true,
+        color: EXTRA_POLE_COLOR
+    });
+}
+
+function addExtraPoleGearShape(group, color) {
+    const hitArea = new Konva.Circle({
+        x: 0,
+        y: 0,
+        radius: POLE_RADIUS + 6,
+        fill: 'rgba(0,0,0,0.001)',
+        listening: true
+    });
+
+    const points = [];
+    const toothCount = 10;
+    for (let i = 0; i < toothCount * 2; i++) {
+        const angle = (Math.PI * i) / toothCount - Math.PI / 2;
+        const radius = i % 2 === 0 ? POLE_RADIUS : POLE_RADIUS - 5;
+        points.push(Math.cos(angle) * radius, Math.sin(angle) * radius);
+    }
+
+    const gearBody = new Konva.Line({
+        points,
+        closed: true,
+        tension: 0.65,
+        fill: color,
+        stroke: '#d96f00',
+        strokeWidth: 2,
+        listening: true,
+        hitStrokeWidth: 20
+    });
+
+    const centerCore = new Konva.Circle({
+        x: 0,
+        y: 0,
+        radius: 8,
+        fill: color,
+        stroke: '#d96f00',
+        strokeWidth: 1,
+        listening: false
+    });
+
+    group.add(hitArea);
+    group.add(gearBody);
+    group.add(centerCore);
+}
+
 // ==========================================
 // Recreate Pole Function (for undo/redo)
 // ==========================================
@@ -1717,15 +1812,21 @@ function recreatePole(poleData) {
         id: `pole-${poleData.id}`
     });
 
-    // Create Konva circle
-    const circle = new Konva.Circle({
-        x: 0,
-        y: 0,
-        radius: POLE_RADIUS,
-        fill: POLE_COLOR,
-        listening: true,
-        hitStrokeWidth: 20
-    });
+    const isExtraPole = !!poleData.isExtraPole;
+
+    if (isExtraPole) {
+        addExtraPoleGearShape(group, poleData.color || EXTRA_POLE_COLOR);
+    } else {
+        const circle = new Konva.Circle({
+            x: 0,
+            y: 0,
+            radius: POLE_RADIUS,
+            fill: poleData.color || POLE_COLOR,
+            listening: true,
+            hitStrokeWidth: 20
+        });
+        group.add(circle);
+    }
 
     // Create Text for Pole Number
     const text = new Konva.Text({
@@ -1738,7 +1839,6 @@ function recreatePole(poleData) {
         fontStyle: 'bold'
     });
 
-    group.add(circle);
     group.add(text);
 
     // Update pole coordinates on drag
@@ -1853,13 +1953,6 @@ function createSwitchAdjacentToLastPole() {
     // Find the latest pole
     let lastPole = null;
     // Iterate backwards to find last added pole
-    for (let i = objects.length - 1; i >= 0; i--) {
-        if (objects[i].type === 'pole') {
-            lastPole = objects[i];
-            break;
-        }
-    }
-
     let x, y;
     if (lastPole) {
         // Place adjacent to the last pole (e.g., to the right)
@@ -2012,6 +2105,7 @@ function createSwitch(x, y) {
     layer.draw();
     saveHistory();
     return group;
+
 }
 
 function recreateSwitch(switchData) {
@@ -2053,11 +2147,10 @@ function recreateSwitch(switchData) {
         width: SWITCH_SIZE
     });
 
-    // Info text (for serial and RR numbers) - above the switch - HIDDEN BY DEFAULT
     const infoText = new Konva.Text({
         x: -120,
         y: -75,
-        text: switchData.serialNumber || switchData.rrNumber 
+        text: switchData.serialNumber || switchData.rrNumber
             ? `Serial: ${switchData.serialNumber || 'N/A'}\nRR: ${switchData.rrNumber || 'N/A'}`
             : '',
         fontSize: 28,
@@ -2065,7 +2158,7 @@ function recreateSwitch(switchData) {
         fill: '#007bff',
         align: 'center',
         width: 240,
-        visible: false, // Hidden by default
+        visible: false,
         listening: true,
         perfectDrawEnabled: false
     });
@@ -2075,11 +2168,9 @@ function recreateSwitch(switchData) {
     group.add(text);
     group.add(infoText);
 
-    // Store reference to track selection state
     group.switchData = switchData;
     group.infoText = infoText;
 
-    // Click/tap handler: in delete mode, delete SR; otherwise open/show details
     const handleSwitchInteraction = (e) => {
         e.cancelBubble = true;
 
@@ -2089,11 +2180,9 @@ function recreateSwitch(switchData) {
         }
 
         if (switchData.serialNumber || switchData.rrNumber) {
-            // Has data: show the text
             infoText.visible(true);
             layer.draw();
         } else {
-            // No data yet: open dialog immediately
             openSwitchDetailsDialog(switchData, infoText, group, layer);
         }
     };
@@ -2101,7 +2190,6 @@ function recreateSwitch(switchData) {
     group.on('click', handleSwitchInteraction);
     group.on('tap', handleSwitchInteraction);
 
-    // Click/tap on displayed text to edit (or delete in delete mode)
     const handleSwitchInfoInteraction = (e) => {
         e.cancelBubble = true;
 
@@ -2132,12 +2220,10 @@ function recreateSwitch(switchData) {
     return group;
 }
 
-// Switch Details Dialog
 function openSwitchDetailsDialog(switchObj, infoText, group, layer) {
     const currentSerial = switchObj.serialNumber || '';
     const currentRR = switchObj.rrNumber || '';
-    
-    // Create dialog HTML
+
     const dialogHTML = `
         <div style="
             position: fixed;
@@ -2153,12 +2239,12 @@ function openSwitchDetailsDialog(switchObj, infoText, group, layer) {
             font-family: Arial, sans-serif;
         " id="switchDialog">
             <h3 style="margin: 0 0 20px 0; color: #333;">SR Details</h3>
-            
+
             <div style="margin-bottom: 16px;">
                 <label style="display: block; margin-bottom: 6px; color: #666; font-size: 14px;">Serial Number</label>
-                <input 
-                    type="text" 
-                    id="serialNumberInput" 
+                <input
+                    type="text"
+                    id="serialNumberInput"
                     value="${currentSerial}"
                     placeholder="Enter serial number"
                     style="
@@ -2171,12 +2257,12 @@ function openSwitchDetailsDialog(switchObj, infoText, group, layer) {
                     "
                 />
             </div>
-            
+
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 6px; color: #666; font-size: 14px;">RR Number</label>
-                <input 
-                    type="text" 
-                    id="rrNumberInput" 
+                <input
+                    type="text"
+                    id="rrNumberInput"
                     value="${currentRR}"
                     placeholder="Enter RR number"
                     style="
@@ -2189,7 +2275,7 @@ function openSwitchDetailsDialog(switchObj, infoText, group, layer) {
                     "
                 />
             </div>
-            
+
             <div style="display: flex; gap: 10px;">
                 <button id="saveSwitchBtn" style="
                     flex: 1;
@@ -2225,29 +2311,22 @@ function openSwitchDetailsDialog(switchObj, infoText, group, layer) {
             z-index: 2999;
         "></div>
     `;
-    
-    // Remove any existing dialog
+
     const existingDialog = document.getElementById('switchDialog');
     if (existingDialog) existingDialog.remove();
     const existingOverlay = document.getElementById('switchDialogOverlay');
     if (existingOverlay) existingOverlay.remove();
-    
-    // Add dialog to page
+
     document.body.insertAdjacentHTML('beforeend', dialogHTML);
-    
-    // Focus on first input
     document.getElementById('serialNumberInput').focus();
-    
-    // Save handler
+
     document.getElementById('saveSwitchBtn').onclick = () => {
         const serial = document.getElementById('serialNumberInput').value;
         const rr = document.getElementById('rrNumberInput').value;
-        
-        // Update switch object
+
         switchObj.serialNumber = serial;
         switchObj.rrNumber = rr;
-        
-        // Update info text display
+
         if (serial || rr) {
             infoText.text(`Serial: ${serial || 'N/A'}\nRR: ${rr || 'N/A'}`);
             infoText.visible(true); // Show text after saving
@@ -2255,23 +2334,23 @@ function openSwitchDetailsDialog(switchObj, infoText, group, layer) {
             infoText.text('');
             infoText.visible(false); // Hide if no data
         }
-        
+
         layer.draw();
-        
+
         // Close dialog
         closeSwitchDialog();
-        
+
         // Save history
         autoSave();
     };
-    
+
     // Cancel handler - hide text when closing without saving
     document.getElementById('cancelSwitchBtn').onclick = () => {
         infoText.visible(false);
         layer.draw();
         closeSwitchDialog();
     };
-    
+
     // Close on overlay click - hide text
     document.getElementById('switchDialogOverlay').onclick = () => {
         infoText.visible(false);
@@ -2933,7 +3012,7 @@ stage.on('tap click', (e) => {
     }
 
     // Handle placement modes
-    if (currentTool === 'pole' || currentTool === 'transformer' || currentTool === 'text') {
+    if (currentTool === 'pole' || currentTool === 'extraPole' || currentTool === 'transformer' || currentTool === 'text') {
         // Ignore clicks on shapes for pole/transformer
         if (currentTool !== 'text' && e.target !== stage) return;
 
@@ -2947,6 +3026,8 @@ stage.on('tap click', (e) => {
         // Create appropriate object based on active tool
         if (currentTool === 'pole') {
             createPole(pos.x, pos.y);
+        } else if (currentTool === 'extraPole') {
+            createExtraPole(pos.x, pos.y);
         } else if (currentTool === 'transformer') {
             createTransformer(pos.x, pos.y);
         } else if (currentTool === 'text') {

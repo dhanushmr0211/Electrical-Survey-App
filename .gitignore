@@ -1,0 +1,14 @@
+node_modules/
+
+# Temporary debug helpers
+__parse_check.js
+__head_app.js
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
