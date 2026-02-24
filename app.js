@@ -659,6 +659,23 @@ function updateActiveFileBadge() {
     activeFileBadge.textContent = `Active: ${currentFileName}`;
 }
 
+function updateMaxPoleBadge() {
+    const maxPoleBadge = document.getElementById('maxPoleBadge');
+    if (!maxPoleBadge) return;
+
+    // Get all existing poles
+    const poles = objects.filter(obj => obj.type === 'pole');
+    
+    if (poles.length === 0) {
+        maxPoleBadge.textContent = 'Max Pole: -';
+        return;
+    }
+
+    // Find the maximum pole number
+    const maxPoleNum = Math.max(...poles.map(p => p.poleNumber));
+    maxPoleBadge.textContent = `Max Pole: ${maxPoleNum}`;
+}
+
 // ==========================================
 // History/Undo-Redo Functions
 // ==========================================
@@ -745,6 +762,7 @@ function undo() {
         loadState(history[historyStep]);
         clearSelection();
         updateHistoryButtons();
+        updateMaxPoleBadge();
     }
 }
 
@@ -754,6 +772,7 @@ function redo() {
         loadState(history[historyStep]);
         clearSelection();
         updateHistoryButtons();
+        updateMaxPoleBadge();
     }
 }
 
@@ -1284,6 +1303,7 @@ function createNewFile() {
     currentFileId = Date.now();
     currentFileName = surveyName.trim();
     updateActiveFileBadge();
+    updateMaxPoleBadge();
 
     // Initial Save
     autoSave();
@@ -1527,6 +1547,7 @@ function loadSurvey(survey) {
     currentFileId = survey.id;
     currentFileName = survey.name;
     updateActiveFileBadge();
+    updateMaxPoleBadge();
 
     layer.draw();
 
@@ -1559,16 +1580,58 @@ function clearCanvas() {
 // ==========================================
 // Create Pole Function
 // ==========================================
+// Get next available pole ID (reuses deleted IDs within the current range, or continues sequentially)
+function getNextAvailablePoleId() {
+    // Get all existing pole numbers
+    const existingPoleNumbers = objects
+        .filter(obj => obj.type === 'pole')
+        .map(obj => obj.poleNumber)
+        .sort((a, b) => a - b);
+    
+    // If no poles exist, start with 1
+    if (existingPoleNumbers.length === 0) {
+        return 1;
+    }
+    
+    const minPole = existingPoleNumbers[0];
+    const maxPole = existingPoleNumbers[existingPoleNumbers.length - 1];
+    
+    // Look for gaps within the existing range (between min and max)
+    for (let i = minPole; i < maxPole; i++) {
+        if (!existingPoleNumbers.includes(i)) {
+            return i; // Found a gap within the range, reuse it
+        }
+    }
+    
+    // No gaps within the range, continue sequentially after the max pole
+    return maxPole + 1;
+}
+
 function createPole(x, y) {
-    // Initialize pole counter if first pole
-    if (poleCounter === null) {
+    // Check if there are any existing poles
+    const existingPoles = objects.filter(obj => obj.type === 'pole');
+    
+    // Only prompt for starting pole number if this is truly the FIRST pole
+    if (existingPoles.length === 0 && poleCounter === null) {
         const input = prompt("Enter starting pole number:", "1");
         if (input === null) return; // Cancelled
         poleCounter = parseInt(input);
         if (isNaN(poleCounter)) poleCounter = 1;
     }
 
-    const currentPoleNum = poleCounter++;
+    // Determine pole number:
+    // - If this is the first pole and user set a custom starting number, use it
+    // - Otherwise, always find/reuse deleted pole numbers
+    let currentPoleNum;
+    
+    if (existingPoles.length === 0) {
+        // First pole - use the custom starting number set by user (or 1 by default)
+        currentPoleNum = poleCounter;
+        poleCounter++; // Increment for next pole
+    } else {
+        // Poles already exist - always find next available (fills gaps first, then continues)
+        currentPoleNum = getNextAvailablePoleId();
+    }
 
     // Create pole object
     const pole = {
@@ -1632,6 +1695,7 @@ function createPole(x, y) {
     layer.draw();
 
     saveHistory();
+    updateMaxPoleBadge();
     return pole;
 }
 
@@ -1820,7 +1884,9 @@ function createSwitch(x, y) {
         id: objectIdCounter++,
         x: x,
         y: y,
-        type: 'switch'
+        type: 'switch',
+        serialNumber: '',
+        rrNumber: ''
     };
 
     objects.push(switchObj);
@@ -1869,9 +1935,67 @@ function createSwitch(x, y) {
         width: SWITCH_SIZE
     });
 
+    // Info text (for serial and RR numbers) - above the switch - HIDDEN BY DEFAULT
+    const infoText = new Konva.Text({
+        x: -120,
+        y: -75,
+        text: '',
+        fontSize: 28,
+        fontFamily: 'Arial',
+        fill: '#007bff',
+        align: 'center',
+        width: 240,
+        visible: false, // Hidden by default
+        listening: true,
+        perfectDrawEnabled: false
+    });
+
     group.add(box);
     group.add(lever);
     group.add(text);
+    group.add(infoText);
+
+    // Store reference to track selection state
+    group.switchData = switchObj;
+    group.infoText = infoText;
+
+    // Click handler: NEW SR opens dialog, EXISTING SR shows data
+    group.on('click', (e) => {
+        e.cancelBubble = true; // Prevent canvas click
+        
+        if (switchObj.serialNumber || switchObj.rrNumber) {
+            // Has data: show the text
+            infoText.visible(true);
+            layer.draw();
+        } else {
+            // No data yet: open dialog immediately
+            openSwitchDetailsDialog(switchObj, infoText, group, layer);
+        }
+    });
+
+    group.on('tap', (e) => {
+        e.cancelBubble = true;
+        
+        if (switchObj.serialNumber || switchObj.rrNumber) {
+            // Has data: show the text
+            infoText.visible(true);
+            layer.draw();
+        } else {
+            // No data yet: open dialog immediately
+            openSwitchDetailsDialog(switchObj, infoText, group, layer);
+        }
+    });
+
+    // Click on displayed text to edit
+    infoText.on('click', (e) => {
+        e.cancelBubble = true;
+        openSwitchDetailsDialog(switchObj, infoText, group, layer);
+    });
+
+    infoText.on('tap', (e) => {
+        e.cancelBubble = true;
+        openSwitchDetailsDialog(switchObj, infoText, group, layer);
+    });
 
     group.on('dragmove', () => {
         switchObj.x = group.x();
@@ -1930,9 +2054,69 @@ function recreateSwitch(switchData) {
         width: SWITCH_SIZE
     });
 
+    // Info text (for serial and RR numbers) - above the switch - HIDDEN BY DEFAULT
+    const infoText = new Konva.Text({
+        x: -120,
+        y: -75,
+        text: switchData.serialNumber || switchData.rrNumber 
+            ? `Serial: ${switchData.serialNumber || 'N/A'}\nRR: ${switchData.rrNumber || 'N/A'}`
+            : '',
+        fontSize: 28,
+        fontFamily: 'Arial',
+        fill: '#007bff',
+        align: 'center',
+        width: 240,
+        visible: false, // Hidden by default
+        listening: true,
+        perfectDrawEnabled: false
+    });
+
     group.add(box);
     group.add(lever);
     group.add(text);
+    group.add(infoText);
+
+    // Store reference to track selection state
+    group.switchData = switchData;
+    group.infoText = infoText;
+
+    // Click handler: NEW SR opens dialog, EXISTING SR shows data
+    group.on('click', (e) => {
+        e.cancelBubble = true;
+        
+        if (switchData.serialNumber || switchData.rrNumber) {
+            // Has data: show the text
+            infoText.visible(true);
+            layer.draw();
+        } else {
+            // No data yet: open dialog immediately
+            openSwitchDetailsDialog(switchData, infoText, group, layer);
+        }
+    });
+
+    group.on('tap', (e) => {
+        e.cancelBubble = true;
+        
+        if (switchData.serialNumber || switchData.rrNumber) {
+            // Has data: show the text
+            infoText.visible(true);
+            layer.draw();
+        } else {
+            // No data yet: open dialog immediately
+            openSwitchDetailsDialog(switchData, infoText, group, layer);
+        }
+    });
+
+    // Click on displayed text to edit
+    infoText.on('click', (e) => {
+        e.cancelBubble = true;
+        openSwitchDetailsDialog(switchData, infoText, group, layer);
+    });
+
+    infoText.on('tap', (e) => {
+        e.cancelBubble = true;
+        openSwitchDetailsDialog(switchData, infoText, group, layer);
+    });
 
     group.on('dragmove', () => {
         switchData.x = group.x();
@@ -1948,6 +2132,175 @@ function recreateSwitch(switchData) {
 
     layer.add(group);
     return group;
+}
+
+// Switch Details Dialog
+function openSwitchDetailsDialog(switchObj, infoText, group, layer) {
+    const currentSerial = switchObj.serialNumber || '';
+    const currentRR = switchObj.rrNumber || '';
+    
+    // Create dialog HTML
+    const dialogHTML = `
+        <div style="
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 3000;
+            min-width: 300px;
+            font-family: Arial, sans-serif;
+        " id="switchDialog">
+            <h3 style="margin: 0 0 20px 0; color: #333;">SR Details</h3>
+            
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 6px; color: #666; font-size: 14px;">Serial Number</label>
+                <input 
+                    type="text" 
+                    id="serialNumberInput" 
+                    value="${currentSerial}"
+                    placeholder="Enter serial number"
+                    style="
+                        width: 100%;
+                        padding: 8px;
+                        border: 1px solid #ddd;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        box-sizing: border-box;
+                    "
+                />
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 6px; color: #666; font-size: 14px;">RR Number</label>
+                <input 
+                    type="text" 
+                    id="rrNumberInput" 
+                    value="${currentRR}"
+                    placeholder="Enter RR number"
+                    style="
+                        width: 100%;
+                        padding: 8px;
+                        border: 1px solid #ddd;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        box-sizing: border-box;
+                    "
+                />
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button id="saveSwitchBtn" style="
+                    flex: 1;
+                    padding: 10px;
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: bold;
+                ">Save</button>
+                <button id="cancelSwitchBtn" style="
+                    flex: 1;
+                    padding: 10px;
+                    background: #ddd;
+                    color: #333;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: bold;
+                ">Cancel</button>
+            </div>
+        </div>
+        <div id="switchDialogOverlay" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2999;
+        "></div>
+    `;
+    
+    // Remove any existing dialog
+    const existingDialog = document.getElementById('switchDialog');
+    if (existingDialog) existingDialog.remove();
+    const existingOverlay = document.getElementById('switchDialogOverlay');
+    if (existingOverlay) existingOverlay.remove();
+    
+    // Add dialog to page
+    document.body.insertAdjacentHTML('beforeend', dialogHTML);
+    
+    // Focus on first input
+    document.getElementById('serialNumberInput').focus();
+    
+    // Save handler
+    document.getElementById('saveSwitchBtn').onclick = () => {
+        const serial = document.getElementById('serialNumberInput').value;
+        const rr = document.getElementById('rrNumberInput').value;
+        
+        // Update switch object
+        switchObj.serialNumber = serial;
+        switchObj.rrNumber = rr;
+        
+        // Update info text display
+        if (serial || rr) {
+            infoText.text(`Serial: ${serial || 'N/A'}\nRR: ${rr || 'N/A'}`);
+            infoText.visible(true); // Show text after saving
+        } else {
+            infoText.text('');
+            infoText.visible(false); // Hide if no data
+        }
+        
+        layer.draw();
+        
+        // Close dialog
+        closeSwitchDialog();
+        
+        // Save history
+        autoSave();
+    };
+    
+    // Cancel handler - hide text when closing without saving
+    document.getElementById('cancelSwitchBtn').onclick = () => {
+        infoText.visible(false);
+        layer.draw();
+        closeSwitchDialog();
+    };
+    
+    // Close on overlay click - hide text
+    document.getElementById('switchDialogOverlay').onclick = () => {
+        infoText.visible(false);
+        layer.draw();
+        closeSwitchDialog();
+    };
+}
+
+function closeSwitchDialog() {
+    const dialog = document.getElementById('switchDialog');
+    const overlay = document.getElementById('switchDialogOverlay');
+    if (dialog) dialog.remove();
+    if (overlay) overlay.remove();
+}
+
+// Hide all switch info text globally (stored in objects array)
+function hideAllSwitchInfoText() {
+    // Find all switch groups and hide their info text
+    const allChildren = layer.getChildren();
+    allChildren.forEach(group => {
+        if (group.id && group.id().startsWith('switch-')) {
+            if (group.infoText) {
+                group.infoText.visible(false);
+            }
+        }
+    });
+    layer.draw();
 }
 
 // ==========================================
@@ -2526,6 +2879,7 @@ function deleteObject(objectId) {
 
     layer.draw();
     saveHistory();
+    updateMaxPoleBadge();
 }
 
 function deleteConnection(connectionId) {
@@ -2563,7 +2917,8 @@ stage.on('tap click', (e) => {
 
     // If pan tool is active, ignore clicks (only drag allowed)
     if (currentTool === 'pan') {
-        // Also possibly clear selection if clicking outside
+        // Clear all switch selections and hide their info text
+        hideAllSwitchInfoText();
         return;
     }
 
@@ -2573,9 +2928,10 @@ stage.on('tap click', (e) => {
         return;
     }
 
-    // If clicking stage (background), clear resize selection
+    // If clicking stage (background), clear resize selection and hide switch info
     if (e.target === stage) {
         clearResizeSelection();
+        hideAllSwitchInfoText();
     }
 
     // Handle placement modes

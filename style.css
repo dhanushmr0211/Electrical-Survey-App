@@ -289,6 +289,23 @@ body {
     backdrop-filter: blur(3px);
 }
 
+.max-pole-badge {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 90;
+    background: rgba(0, 123, 255, 0.85);
+    color: #fff;
+    border: 1px solid #0056b3;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    backdrop-filter: blur(3px);
+}
+
 .app-version-badge {
     position: absolute;
     top: 4px;
