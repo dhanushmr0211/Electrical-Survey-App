@@ -1959,10 +1959,15 @@ function createSwitch(x, y) {
     group.switchData = switchObj;
     group.infoText = infoText;
 
-    // Click handler: NEW SR opens dialog, EXISTING SR shows data
-    group.on('click', (e) => {
+    // Click/tap handler: in delete mode, delete SR; otherwise open/show details
+    const handleSwitchInteraction = (e) => {
         e.cancelBubble = true; // Prevent canvas click
-        
+
+        if (currentTool === 'delete') {
+            deleteObject(switchObj.id);
+            return;
+        }
+
         if (switchObj.serialNumber || switchObj.rrNumber) {
             // Has data: show the text
             infoText.visible(true);
@@ -1971,31 +1976,25 @@ function createSwitch(x, y) {
             // No data yet: open dialog immediately
             openSwitchDetailsDialog(switchObj, infoText, group, layer);
         }
-    });
+    };
 
-    group.on('tap', (e) => {
+    group.on('click', handleSwitchInteraction);
+    group.on('tap', handleSwitchInteraction);
+
+    // Click/tap on displayed text to edit (or delete in delete mode)
+    const handleSwitchInfoInteraction = (e) => {
         e.cancelBubble = true;
-        
-        if (switchObj.serialNumber || switchObj.rrNumber) {
-            // Has data: show the text
-            infoText.visible(true);
-            layer.draw();
-        } else {
-            // No data yet: open dialog immediately
-            openSwitchDetailsDialog(switchObj, infoText, group, layer);
+
+        if (currentTool === 'delete') {
+            deleteObject(switchObj.id);
+            return;
         }
-    });
 
-    // Click on displayed text to edit
-    infoText.on('click', (e) => {
-        e.cancelBubble = true;
         openSwitchDetailsDialog(switchObj, infoText, group, layer);
-    });
+    };
 
-    infoText.on('tap', (e) => {
-        e.cancelBubble = true;
-        openSwitchDetailsDialog(switchObj, infoText, group, layer);
-    });
+    infoText.on('click', handleSwitchInfoInteraction);
+    infoText.on('tap', handleSwitchInfoInteraction);
 
     group.on('dragmove', () => {
         switchObj.x = group.x();
@@ -2080,10 +2079,15 @@ function recreateSwitch(switchData) {
     group.switchData = switchData;
     group.infoText = infoText;
 
-    // Click handler: NEW SR opens dialog, EXISTING SR shows data
-    group.on('click', (e) => {
+    // Click/tap handler: in delete mode, delete SR; otherwise open/show details
+    const handleSwitchInteraction = (e) => {
         e.cancelBubble = true;
-        
+
+        if (currentTool === 'delete') {
+            deleteObject(switchData.id);
+            return;
+        }
+
         if (switchData.serialNumber || switchData.rrNumber) {
             // Has data: show the text
             infoText.visible(true);
@@ -2092,31 +2096,25 @@ function recreateSwitch(switchData) {
             // No data yet: open dialog immediately
             openSwitchDetailsDialog(switchData, infoText, group, layer);
         }
-    });
+    };
 
-    group.on('tap', (e) => {
+    group.on('click', handleSwitchInteraction);
+    group.on('tap', handleSwitchInteraction);
+
+    // Click/tap on displayed text to edit (or delete in delete mode)
+    const handleSwitchInfoInteraction = (e) => {
         e.cancelBubble = true;
-        
-        if (switchData.serialNumber || switchData.rrNumber) {
-            // Has data: show the text
-            infoText.visible(true);
-            layer.draw();
-        } else {
-            // No data yet: open dialog immediately
-            openSwitchDetailsDialog(switchData, infoText, group, layer);
+
+        if (currentTool === 'delete') {
+            deleteObject(switchData.id);
+            return;
         }
-    });
 
-    // Click on displayed text to edit
-    infoText.on('click', (e) => {
-        e.cancelBubble = true;
         openSwitchDetailsDialog(switchData, infoText, group, layer);
-    });
+    };
 
-    infoText.on('tap', (e) => {
-        e.cancelBubble = true;
-        openSwitchDetailsDialog(switchData, infoText, group, layer);
-    });
+    infoText.on('click', handleSwitchInfoInteraction);
+    infoText.on('tap', handleSwitchInfoInteraction);
 
     group.on('dragmove', () => {
         switchData.x = group.x();
