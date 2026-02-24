@@ -1117,11 +1117,12 @@ function generatePdfQuietly() {
     doc.text(`Date: ${new Date().toLocaleString()}`, margin, yPos);
 
     // Counts
-    const poles = objects.filter(o => o.type === 'pole').length;
+    const normalPoles = objects.filter(o => o.type === 'pole' && !o.isExtraPole).length;
+    const extraPoles = objects.filter(o => o.type === 'pole' && o.isExtraPole).length;
     const transformers = objects.filter(o => o.type === 'transformer').length;
     const switches = objects.filter(o => o.type === 'switch').length;
 
-    doc.text(`Poles: ${poles}   |   Transformers: ${transformers}   |   Switches: ${switches}`, pageWidth - margin, yPos, { align: 'right' });
+    doc.text(`Poles: ${normalPoles}   |   Extra Poles: ${extraPoles}   |   Transformers: ${transformers}   |   Switches: ${switches}`, pageWidth - margin, yPos, { align: 'right' });
     yPos += 10;
 
     // Divider
@@ -1133,12 +1134,25 @@ function generatePdfQuietly() {
     const oldScale = stage.scaleX();
     const oldPos = stage.position();
 
-    // 2. Reset view to standard 1:1 to calculate full bounds
+    // 2. Temporarily hide all SR info text to avoid duplication in PDF
+    const srInfoTextStates = [];
+    const allChildren = layer.getChildren();
+    allChildren.forEach(group => {
+        if (group.id && group.id().startsWith('switch-') && group.infoText) {
+            srInfoTextStates.push({
+                infoText: group.infoText,
+                wasVisible: group.infoText.visible()
+            });
+            group.infoText.visible(false);
+        }
+    });
+
+    // 3. Reset view to standard 1:1 to calculate full bounds
     stage.scale({ x: 1, y: 1 });
     stage.position({ x: 0, y: 0 });
     stage.batchDraw(); // Force update needed for getClientRect? Usually not if we don't wait for frame, but let's be safe.
 
-    // 3. Get bounds of all objects
+    // 4. Get bounds of all objects
     // Use layer.getClientRect to correct bounding box of all content
     // We add some padding
     const padding = 50;
@@ -1160,7 +1174,7 @@ function generatePdfQuietly() {
         rect.height += padding * 2;
     }
 
-    // 4. Generate High-Res Image of the area
+    // 5. Generate High-Res Image of the area
     // Use PNG to handle transparency correctly (JPEG turns transparent to black)
     const dataUrl = stage.toDataURL({
         x: rect.x,
@@ -1171,9 +1185,12 @@ function generatePdfQuietly() {
         mimeType: 'image/png'
     });
 
-    // 5. Restore view state immediately
+    // 6. Restore view state and SR info text visibility immediately
     stage.scale({ x: oldScale, y: oldScale });
     stage.position(oldPos);
+    srInfoTextStates.forEach(state => {
+        state.infoText.visible(state.wasVisible);
+    });
     stage.batchDraw();
 
     // Calculate aspect ratio to fit in PDF
@@ -1193,7 +1210,38 @@ function generatePdfQuietly() {
 
     // Centered Image
     const xPos = (pageWidth - finalWidth) / 2;
+    const imageYPos = yPos;
     doc.addImage(dataUrl, 'PNG', xPos, yPos, finalWidth, finalHeight);
+
+    // Calculate scale factors for overlaying text on diagram
+    const scaleX = finalWidth / rect.width;
+    const scaleY = finalHeight / rect.height;
+
+    // Add SR details directly above each SR on the diagram
+    const switchObjects = objects.filter(o => o.type === 'switch');
+    if (switchObjects.length > 0) {
+        doc.setFontSize(7);
+        doc.setTextColor(0, 0, 139); // Dark blue for visibility
+        doc.setFont(undefined, 'bold');
+
+        switchObjects.forEach(sw => {
+            const serialNumber = sw.serialNumber || 'N/A';
+            const rrNumber = sw.rrNumber || 'N/A';
+
+            // Convert canvas coordinates to PDF coordinates
+            const pdfX = xPos + ((sw.x - rect.x) * scaleX);
+            const pdfY = imageYPos + ((sw.y - rect.y) * scaleY) - 8; // 8mm above the switch
+
+            // Add text above the switch
+            doc.text(`S:${serialNumber}`, pdfX, pdfY, { align: 'center' });
+            doc.text(`R:${rrNumber}`, pdfX, pdfY + 2.5, { align: 'center' }); // 2.5mm below first line
+        });
+
+        doc.setTextColor(0, 0, 0); // Reset to black
+        doc.setFont(undefined, 'normal');
+    }
+
+    yPos += finalHeight + 10;
 
     // Footer
     doc.setFontSize(8);
